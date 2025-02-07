@@ -359,7 +359,7 @@ class ToothItem:
         tw = self.protesis_text.boundingRect().width()
         th = self.protesis_text.boundingRect().height()
         cx = top_rect.center().x() - tw/2
-        cy = top_rect.top() - 5 - th
+        cy = top_rect.top() -  -3 - th
         self.protesis_text.setPos(cx, cy)
         self.protesis_text.setVisible(True)
 
