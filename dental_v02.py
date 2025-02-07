@@ -532,5 +532,6 @@ def main():
 if __name__ == "__main__":
     main()
 
+#LLAMADA CON EJEMPLOS PARA TODOS LOS ESTADOS:
+#python dental_v02.py --credencial "354495" --titular "Antonella Bouvier" --prestador "Dr. Juan Pérez" --fecha "2025-01-30" --observaciones " " --dientes "125VL,226,327,428V,585VI,584,652,653,761V,863,964,1065,131MDVLIOG,1136,1237,1338"
 
-#python dental_v02.py --credencial "354495" --titular "Antonella Bouvier" --prestador "Dr. Juan Pérez" --fecha "2025-01-30" --observaciones " " --dientes "325,126VI,327,428V,585VI,584,652,761V,1052,154MDVOLIOG"
