@@ -414,32 +414,55 @@ class OdontogramView(QGraphicsView):
         self.create_teeth()
 
     def create_teeth(self):
-        size = 40
-        margin = 10
-        row1 = ["18","17","16","15","14","13","12","11",
-                "21","22","23","24","25","26","27","28"]
-        row2 = ["55","54","53","52","51","61","62","63","64","65"]
-        row3 = ["85","84","83","82","81","71","72","73","74","75"]
-        row4 = ["48","47","46","45","44","43","42","41",
-                "31","32","33","34","35","36","37","38"]
+        size = 40  # Tamaño de cada diente
+        margin = 10  # Espaciado entre dientes
+
+        # Definimos las filas de dientes
+        row1 = ["18","17","16","15","14","13","12","11", "21","22","23","24","25","26","27","28"]
+        row2 = ["55","54","53","52","51","61","62","63","64","65"]  # Infantil superior
+        row3 = ["85","84","83","82","81","71","72","73","74","75"]  # Infantil inferior
+        row4 = ["48","47","46","45","44","43","42","41", "31","32","33","34","35","36","37","38"]
+        
         rows = [row1, row2, row3, row4]
-        y_positions = [50, 140, 250, 340]
+        y_positions = [50, 140, 250, 340]  # Posiciones verticales de cada fila
+        
+        # **Cálculo de ancho total de la fila superior**
+        total_width_row1 = len(row1) * (size + margin) - margin  # Descontamos último margen
+        
+        # **Cálculo de ancho total de la fila infantil**
+        total_width_row2 = len(row2) * (size + margin) - margin  # 55-65
+        total_width_row3 = len(row3) * (size + margin) - margin  # 85-75
+        
+        # **Cálculo del offset para centrar las filas infantiles**
+        offset_x_row2 = (total_width_row1 - total_width_row2) // 2
+        offset_x_row3 = (total_width_row1 - total_width_row3) // 2
 
         for idx, row in enumerate(rows):
             y = y_positions[idx]
-            x_start = 50
+
+            # **Aplicamos offset solo en las filas 2 y 3 (centrales)**
+            if idx == 1:  # 55-65 (infantil superior)
+                x_start = 50 + offset_x_row2
+            elif idx == 2:  # 85-75 (infantil inferior)
+                x_start = 50 + offset_x_row3
+            else:
+                x_start = 50  # Para filas 1 y 4 no aplicamos desplazamiento
+
             tooth_row = []
             for i, tnum in enumerate(row):
-                x = x_start + i*(size+margin)
+                x = x_start + i * (size + margin)
                 t = ToothItem(x, y, size, self.scene, self, tnum)
                 tooth_row.append(t)
+
                 # Texto debajo del diente
                 txt = QGraphicsTextItem(tnum)
                 txt.setFont(QFont("Arial", 10))
                 txt.setDefaultTextColor(Qt.black)
-                txt.setPos(x + size/2 - txt.boundingRect().width()/2, y+size+3)
+                txt.setPos(x + size / 2 - txt.boundingRect().width() / 2, y + size + 3)
                 self.scene.addItem(txt)
+
             self.dientes.append(tooth_row)
+
 
     def set_current_state(self, state_name):
         self.current_state_name = state_name
