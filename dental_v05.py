@@ -10,31 +10,29 @@ from collections import defaultdict
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QGraphicsView, QGraphicsScene, QWidget,
     QGraphicsPolygonItem, QGraphicsTextItem, QGraphicsPixmapItem,
-    QComboBox, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QLabel
+    QComboBox, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QLabel,
+    QPushButton
 )
 from PyQt5.QtGui import (
-    QBrush, QPen, QFont, QPolygonF, QPixmap
+    QBrush, QPen, QFont, QPolygonF, QPixmap, QScreen
 )
 from PyQt5.QtCore import Qt, QPointF, QRectF
 
-from PyQt5.QtWidgets import QApplication
-from Modules.style import apply_style
+# Si usas style.py (opcional):
+try:
+    from PyQt5.QtWidgets import QFileDialog
+    from Modules.style import apply_style
+except ImportError:
+    def apply_style(x):
+        pass
 
 # ----------------------------------------------------
-# Función para cargar recursos tanto en modo desarrollo
-# como en modo PyInstaller (exe)
+# Función para cargar recursos (desarrollo / PyInstaller)
 # ----------------------------------------------------
 def resource_path(relative_path: str) -> str:
-    """
-    Retorna la ruta absoluta al recurso. Si estamos ejecutando
-    como un .exe compilado con PyInstaller, utilizará sys._MEIPASS.
-    De lo contrario, usará la ruta local.
-    """
     try:
-        # En PyInstaller, _MEIPASS es donde se descomprimen los archivos
         base_path = sys._MEIPASS
     except Exception:
-        # En desarrollo, la base es el directorio actual
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
@@ -64,11 +62,6 @@ ESTADOS_POR_NUM = {v: k for k, v in ESTADOS.items()}
 # Funciones para parsear estados dentales
 # -----------------------------
 def parse_dental_states(dental_str):
-    """
-    Interpreta una cadena como "652,1052" => 
-    (6, 52, ""), (10, 52, "")
-    o "651MOD" => (6, 51, "MOD")
-    """
     if not dental_str:
         return []
     items = [x.strip() for x in dental_str.split(",") if x.strip()]
@@ -76,7 +69,7 @@ def parse_dental_states(dental_str):
     for item in items:
         p = parse_item_with_backtracking(item)
         if p:
-            parsed_list.append(p)  # (estado_int, d_int, caras_str)
+            parsed_list.append(p)
         else:
             print(f"WARNING: No se pudo interpretar: {item}")
     return parsed_list
@@ -112,12 +105,9 @@ def parse_item_with_backtracking(item_str):
 
 
 # -----------------------------
-# Clase para cada cara de la pieza dental
+# Clase para cada cara del diente
 # -----------------------------
 class ToothFacePolygon(QGraphicsPolygonItem):
-    """
-    Representa una cara (top, bottom, left, right, center) del diente.
-    """
     def __init__(self, points, parent_tooth, face_name):
         super().__init__()
         poly = QPolygonF()
@@ -131,13 +121,10 @@ class ToothFacePolygon(QGraphicsPolygonItem):
         self.is_selected = False
 
     def mousePressEvent(self, event):
-        # Bloquear si la vista está en modo "locked"
         if self.tooth.odontogram_view.locked:
             return
-
         current_state = self.tooth.odontogram_view.current_state_name
         if current_state == "Obturacion":
-            # Toggle de color 
             if not self.is_selected:
                 self.setBrush(QBrush(Qt.blue))
                 self.is_selected = True
@@ -146,12 +133,9 @@ class ToothFacePolygon(QGraphicsPolygonItem):
                 self.is_selected = False
 
         elif current_state == "Puente":
-            # Toggle en la pieza entera
             self.tooth.has_bridge = not self.tooth.has_bridge
             self.tooth.odontogram_view.update_bridges()
-
         else:
-            # Otros estados
             self.tooth.apply_state(current_state)
 
         super().mousePressEvent(event)
@@ -161,14 +145,11 @@ class ToothFacePolygon(QGraphicsPolygonItem):
 # Clase ToothItem (pieza completa)
 # -----------------------------
 class ToothItem:
-    """
-    Un diente con 5 polígonos + sus "overlays" (líneas, círculos, textos...).
-    """
     def __init__(self, x, y, size, scene, odontogram_view, tooth_num):
         self.scene = scene
         self.odontogram_view = odontogram_view
         self.size = size
-        self.tooth_num = tooth_num  # string, ej "11", "54"
+        self.tooth_num = tooth_num
 
         # Polígonos
         self.top = None
@@ -187,43 +168,31 @@ class ToothItem:
         self.supernumerario_circle = None
         self.supernumerario_text = None
 
-        # Flag para indicar si tiene puente
+        # Flag para puente
         self.has_bridge = False
 
-        # 1) Cargamos la imagen de fondo (si existe) antes de los polígonos
+        # 1) Imagen de fondo
         self.load_tooth_image(x, y, tooth_num)
-
-        # 2) Creamos los polígonos
+        # 2) Crear polígonos
         self.create_faces(x, y, size)
-
-        # 3) Creamos los overlays
+        # 3) Crear overlays
         self.create_overlays(x, y, size)
 
     def load_tooth_image(self, x, y, tooth_num_str):
-        """
-        Carga la imagen "diente_XX.png" desde la carpeta Source (si existe)
-        y la pone como fondo con zValue = -1.
-        """
-        # Ruta => "Source/diente_XX.png"
         image_file = f"Source/diente_{tooth_num_str}.png"
         image_path = resource_path(image_file)
-
         if os.path.exists(image_path):
             pixmap = QPixmap(image_path)
             if not pixmap.isNull():
                 pix_item = QGraphicsPixmapItem(pixmap)
-                # Escalado opcional si la imagen no mide 40x40
                 w_img = pixmap.width()
                 h_img = pixmap.height()
                 if w_img != self.size or h_img != self.size:
                     scale_factor = self.size / w_img
                     pix_item.setScale(scale_factor)
                 pix_item.setPos(x, y)
-                pix_item.setZValue(-1)  # Al fondo
+                pix_item.setZValue(-1)
                 self.scene.addItem(pix_item)
-        else:
-            # No se encontró la imagen => no pasa nada
-            pass
 
     def create_faces(self, x, y, size):
         fs = size / 3
@@ -248,7 +217,7 @@ class ToothItem:
     def create_overlays(self, x, y, size):
         pen_b = QPen(Qt.blue, 3)
 
-        # Línea en X para PD Ausente
+        # X para PD Ausente
         line1 = self.scene.addLine(x, y, x+size, y+size, pen_b)
         line2 = self.scene.addLine(x+size, y, x, y+size, pen_b)
         line1.setVisible(False)
@@ -307,14 +276,15 @@ class ToothItem:
         s_text = QGraphicsTextItem("S")
         s_text.setFont(QFont("Arial", 12, QFont.Bold))
         s_text.setDefaultTextColor(Qt.blue)
-        s_text.setPos(sx2+sup_r/2 - s_text.boundingRect().width()/2,
-                      sy2+sup_r/2 - s_text.boundingRect().height()/2)
+        s_text.setPos(
+            sx2+sup_r/2 - s_text.boundingRect().width()/2,
+            sy2+sup_r/2 - s_text.boundingRect().height()/2
+        )
         s_text.setVisible(False)
         s_text.setZValue(1)
         self.supernumerario_text = s_text
         self.scene.addItem(s_text)
 
-        # Agregar a la escena
         for ov in [line1, line2, self.corona_circle, self.implante_text,
                    self.sellador_circle, self.ausente_fisio_circle,
                    self.supernumerario_circle, s_text]:
@@ -326,25 +296,18 @@ class ToothItem:
     def apply_state(self, state_name):
         if state_name == "Ninguno":
             self.reset_tooth()
-
         elif state_name == "Agenesia":
             self.set_agenesia(True)
-
         elif state_name == "PD Ausente":
             self.set_pd_ausente(True)
-
         elif state_name == "Corona":
             self.set_corona(True)
-
         elif state_name == "Implante":
             self.set_implante(True)
-
         elif state_name == "Selladores":
             self.set_sellador(True)
-
         elif state_name == "Ausente Fisiológico":
             self.set_ausente_fisio(True)
-
         elif state_name in [
             "Prótesis Removible SUPERIOR",
             "Prótesis Removible INFERIOR",
@@ -352,15 +315,11 @@ class ToothItem:
             "Prótesis Completa INFERIOR",
         ]:
             self.set_protesis_text(self._short_protesis_label(state_name))
-
         elif state_name == "Supernumerario":
             self.set_supernumerario(True)
-
         elif state_name == "Obturacion":
-            # Pintar todo de azul
             for f in [self.top, self.right, self.bottom, self.left, self.center]:
                 f.setBrush(QBrush(Qt.blue))
-
         elif state_name == "Puente":
             self.has_bridge = True
             self.odontogram_view.update_bridges()
@@ -430,10 +389,8 @@ class ToothItem:
             f.setBrush(QBrush(Qt.white))
             f.setPen(QPen(Qt.black, 2))
             f.is_selected = False
-
         for line in self.cross_lines:
             line.setVisible(False)
-
         if self.corona_circle:
             self.corona_circle.setVisible(False)
         if self.implante_text:
@@ -448,7 +405,6 @@ class ToothItem:
             self.supernumerario_circle.setVisible(False)
         if self.supernumerario_text:
             self.supernumerario_text.setVisible(False)
-
         self.has_bridge = False
 
 
@@ -456,58 +412,48 @@ class ToothItem:
 # Clase OdontogramView
 # -----------------------------
 class OdontogramView(QGraphicsView):
-    """
-    Contiene la escena con los dientes y dibuja los puentes cuando procede.
-    """
     def __init__(self, locked=False):
         super().__init__()
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.current_state_name = "Ninguno"
-
-        # Indica si se permite la interacción o está bloqueado
         self.locked = locked
 
-        # Guardaremos referencias a las líneas de puente
         self.bridge_lines = []
         self.dientes = []
         self.create_teeth()
 
     def create_teeth(self):
-        size = 40  # Tamaño de cada diente
-        margin = 10  # Espaciado horizontal entre dientes
+        size = 40
+        margin = 10
 
-        # Definimos las filas de dientes
         row1 = ["18","17","16","15","14","13","12","11","21","22","23","24","25","26","27","28"]
         row2 = ["55","54","53","52","51","61","62","63","64","65"]  
         row3 = ["85","84","83","82","81","71","72","73","74","75"]  
         row4 = ["48","47","46","45","44","43","42","41","31","32","33","34","35","36","37","38"]
-        
+
         rows = [row1, row2, row3, row4]
-        
-        # Aumentamos el margen vertical para que se vean mejor las imágenes
-        y_positions = [50, 200, 350, 500]  
+        y_positions = [50, 200, 350, 500]
 
-        # Cálculos para centrar filas 2 y 3 respecto a la 1
-        total_width_row1 = len(row1) * (size + margin) - margin  
-        total_width_row2 = len(row2) * (size + margin) - margin  
-        total_width_row3 = len(row3) * (size + margin) - margin  
+        total_width_row1 = len(row1)*(size+margin) - margin
+        total_width_row2 = len(row2)*(size+margin) - margin
+        total_width_row3 = len(row3)*(size+margin) - margin
 
-        offset_x_row2 = (total_width_row1 - total_width_row2) // 2
-        offset_x_row3 = (total_width_row1 - total_width_row3) // 2
+        offset_x_row2 = (total_width_row1 - total_width_row2)//2
+        offset_x_row3 = (total_width_row1 - total_width_row3)//2
 
         for idx, row in enumerate(rows):
             y = y_positions[idx]
-            if idx == 1:  
+            if idx == 1:
                 x_start = 50 + offset_x_row2
-            elif idx == 2:  
+            elif idx == 2:
                 x_start = 50 + offset_x_row3
             else:
                 x_start = 50
 
             tooth_row = []
             for i, tnum in enumerate(row):
-                x = x_start + i * (size + margin)
+                x = x_start + i*(size+margin)
                 t = ToothItem(x, y, size, self.scene, self, tnum)
                 tooth_row.append(t)
 
@@ -515,7 +461,7 @@ class OdontogramView(QGraphicsView):
                 txt = QGraphicsTextItem(tnum)
                 txt.setFont(QFont("Arial", 10))
                 txt.setDefaultTextColor(Qt.black)
-                txt.setPos(x + size / 2 - txt.boundingRect().width() / 2, y + size + 3)
+                txt.setPos(x + size/2 - txt.boundingRect().width()/2, y + size + 3)
                 self.scene.addItem(txt)
 
             self.dientes.append(tooth_row)
@@ -524,39 +470,25 @@ class OdontogramView(QGraphicsView):
         self.current_state_name = state_name
 
     def update_bridges(self):
-        """
-        Dibujamos una línea horizontal por cada diente con has_bridge=True.
-        Sin agrupar ni comprobar consecutividad, lo que da la ilusión 
-        de línea continua cuando los dientes están juntos.
-        """
-        # 1) Eliminar líneas anteriores
         for line_item in self.bridge_lines:
             self.scene.removeItem(line_item)
         self.bridge_lines.clear()
 
-        # 2) Para cada fila, buscamos los dientes con has_bridge=True
         for row in self.dientes:
             bridging_teeth = [t for t in row if t.has_bridge]
             if not bridging_teeth:
                 continue
-
-            # Dibujamos una línea por cada diente con puente
             for tooth in bridging_teeth:
                 rect = tooth.top.mapToScene(tooth.top.boundingRect()).boundingRect()
                 y_line = rect.center().y() + (tooth.size / 2) - 10
                 x_left = rect.left() - 5
                 x_right = rect.right() + 5
-
                 pen_bridge = QPen(Qt.blue, 4)
                 puente_line = self.scene.addLine(x_left, y_line, x_right, y_line, pen_bridge)
-                puente_line.setZValue(0)  # que quede detrás
+                puente_line.setZValue(0)
                 self.bridge_lines.append(puente_line)
 
     def apply_batch_states(self, states_list):
-        """
-        Aplica masivamente los estados parseados a los dientes
-        y luego actualiza el dibujado de puentes.
-        """
         tooth_states = defaultdict(list)
         for (st_int, d_int, faces) in states_list:
             estado_name = ESTADOS_POR_NUM.get(st_int, None)
@@ -569,12 +501,10 @@ class OdontogramView(QGraphicsView):
                 continue
             tooth_states[d_int].append((estado_name, faces))
 
-        # Reseteamos todo primero
         for row in self.dientes:
             for t in row:
                 t.reset_tooth()
 
-        # Aplicamos los estados
         for d_int, est_list in tooth_states.items():
             found = self.find_tooth(str(d_int))
             for (ename, faces) in est_list:
@@ -594,7 +524,7 @@ class OdontogramView(QGraphicsView):
 
 
 # --------------------------------------------------------------------
-# Ventana principal
+# Ventana Principal
 # --------------------------------------------------------------------
 class MainWindow(QMainWindow):
     def __init__(self, args):
@@ -602,16 +532,15 @@ class MainWindow(QMainWindow):
         self.args = args
         self.setWindowTitle("Odontograma")
 
+        # Bloqueo de edición si se especifican dientes
         ds = self.args.dientes.strip()
-        self.locked_mode = bool(ds)  # Bloqueo si hay parámetros 'dientes'
+        self.locked_mode = bool(ds)
 
+        # Vista del odontograma
         self.odontogram_view = OdontogramView(locked=self.locked_mode)
 
         # -----------------------------
-        # Datos del paciente en 3 filas:
-        #   1) Credencial, Titular, Fecha
-        #   2) Prestador
-        #   3) Observaciones
+        # Datos del paciente
         # -----------------------------
         self.credencialEdit = QLineEdit(self.args.credencial or "")
         self.prestadorEdit  = QLineEdit(self.args.prestador  or "")
@@ -620,7 +549,7 @@ class MainWindow(QMainWindow):
         self.observacionesEdit = QLineEdit(self.args.observaciones or "")
         self.observacionesEdit.setMaxLength(100)
 
-        # Bloqueo si locked_mode
+        # Si está bloqueado, no se pueden editar
         if self.locked_mode:
             self.credencialEdit.setReadOnly(True)
             self.prestadorEdit.setReadOnly(True)
@@ -628,7 +557,7 @@ class MainWindow(QMainWindow):
             self.fechaEdit.setReadOnly(True)
             self.observacionesEdit.setReadOnly(True)
 
-        # Creamos un formLayout
+        # Layout formulario
         formLayout = QFormLayout()
 
         # Fila 1 => Credencial, Titular, Fecha
@@ -642,13 +571,11 @@ class MainWindow(QMainWindow):
         row1.addWidget(QLabel("Fecha:"))
         row1.addWidget(self.fechaEdit)
         formLayout.addRow(row1)
+
         row1.addWidget(QLabel("Prestador:"))
         row1.addWidget(self.prestadorEdit)
         formLayout.addRow(row1)
 
-        # Fila 2 => Prestador
-        row2 = QHBoxLayout()
-        
         # Fila 3 => Observaciones
         row3 = QHBoxLayout()
         row3.addWidget(QLabel("Observaciones:"))
@@ -656,8 +583,14 @@ class MainWindow(QMainWindow):
         formLayout.addRow(row3)
 
         # -----------------------------
-        # Leyenda
+        # Leyenda + "Estado actual" + BOTÓN DESCARGAR
         # -----------------------------
+        self.state_selector = QComboBox()
+        self.state_selector.addItems(ESTADOS.keys())
+        self.state_selector.currentTextChanged.connect(self.on_state_changed)
+        if self.locked_mode:
+            self.state_selector.setEnabled(False)
+
         self.legendLabel = QLabel()
         leyenda_path = resource_path("leyenda.png")
         if os.path.exists(leyenda_path):
@@ -668,24 +601,32 @@ class MainWindow(QMainWindow):
         self.legendLabel.setFixedWidth(280)
         self.legendLabel.setFixedHeight(550)
 
-        # Odontograma a la derecha
-        hLayoutOdon = QHBoxLayout()
-        hLayoutOdon.addWidget(self.legendLabel)
-        hLayoutOdon.addWidget(self.odontogram_view)
+        # Botón DESCARGAR
+        self.descargarButton = QPushButton("Descargar")
+        self.descargarButton.clicked.connect(self.on_descargar_clicked)
 
-        # Combo de estados
-        self.state_selector = QComboBox()
-        self.state_selector.addItems(ESTADOS.keys())
-        self.state_selector.currentTextChanged.connect(self.on_state_changed)
-        if self.locked_mode:
-            self.state_selector.setEnabled(False)
+        # Layout vertical para leyenda, estado y botón
+        legendLayout = QVBoxLayout()
+        legendLayout.addWidget(self.legendLabel)
+        lblEstado = QLabel("Estado actual:")
+        legendLayout.addWidget(lblEstado)
+        legendLayout.addWidget(self.state_selector)
+        # Agregamos botón "Descargar"
+        legendLayout.addWidget(self.descargarButton)
+
+        # Odontograma a la derecha
+        odontoLayout = QVBoxLayout()
+        odontoLayout.addWidget(self.odontogram_view)
+
+        # Unimos leyenda (izq) + odonto (der)
+        hLayoutOdon = QHBoxLayout()
+        hLayoutOdon.addLayout(legendLayout)
+        hLayoutOdon.addLayout(odontoLayout)
 
         # Layout principal
         mainLayout = QVBoxLayout()
         mainLayout.addLayout(formLayout)
         mainLayout.addLayout(hLayoutOdon)
-        mainLayout.addWidget(QLabel("Estado actual:"))
-        mainLayout.addWidget(self.state_selector)
 
         container = QWidget()
         container.setLayout(mainLayout)
@@ -700,6 +641,38 @@ class MainWindow(QMainWindow):
     def on_state_changed(self, new_state):
         self.odontogram_view.set_current_state(new_state)
 
+    def on_descargar_clicked(self):
+        """
+        Abre un cuadro de diálogo para que el usuario elija el directorio donde guardar la imagen.
+        Guarda la captura de la ventana con el nombre "odontograma_{TITULAR}_{FECHA}.png".
+        """
+        titular = self.titularEdit.text().strip().replace(" ", "_")
+        fecha = self.fechaEdit.text().strip().replace(" ", "_")
+        if not titular:
+            titular = "SIN_TITULAR"
+        if not fecha:
+            fecha = "SIN_FECHA"
+        file_name = f"odontograma_{titular}_{fecha}.png"
+
+        # Abre el cuadro de diálogo para seleccionar la carpeta
+        folder_path = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta", "")
+
+        # Si el usuario cancela, no guarda nada
+        if not folder_path:
+            return
+
+        # Ruta completa del archivo
+        full_path = os.path.join(folder_path, file_name)
+
+        # Captura la ventana completa
+        pixmap = self.grab()
+        saved_ok = pixmap.save(full_path, "PNG")
+
+        if saved_ok:
+            print(f"Captura guardada en: {full_path}")
+        else:
+            print("Error al guardar la captura.")
+
     def apply_dental_args(self):
         ds = self.args.dientes
         if ds:
@@ -707,7 +680,6 @@ class MainWindow(QMainWindow):
             for (s_i, d_i, car) in parsed:
                 print(f"PARSE => estado={s_i}, diente={d_i}, caras='{car}'")
             self.odontogram_view.apply_batch_states(parsed)
-
 
 
 def main():
@@ -721,19 +693,11 @@ def main():
     args = parser.parse_args()
 
     app = QApplication(sys.argv)
-    apply_style(app)  # <- Llamarda de style.py
+    apply_style(app)
     w = MainWindow(args)
-    w.resize(1400, 800)  # Ajusta el tamaño de la ventana a tu gusto
     w.show()
     sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
     main()
-
-
-"""
-python dental_v05.py --credencial "123456" --titular "Carlos Pérez" --prestador "Dr. María López" --fecha "2025-02-10" --observaciones "Revisión general y tratamientos aplicados." --dientes "111,212V,313D,414MD,515O,616VI,717V,818,125,225,326,437,548,651,661,662,752,863,974,1085,1147,1245,1342,1341,135OLP,653,654,655"
->>
-
-"""
