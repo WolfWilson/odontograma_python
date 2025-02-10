@@ -5,10 +5,15 @@ from PyQt5.QtCore import Qt
 def apply_style(app):
     """
     Aplica un estilo sencillo y sobrio en tonos grises claros a la aplicación.
+    Forzamos "Fusion" style para que la paleta se vea de forma consistente.
     """
+    # 1) Ponemos el estilo "Fusion"
+    app.setStyle("Fusion")
+
+    # 2) Creamos la paleta
     palette = QPalette()
 
-    # Fondo de ventana (Window)
+    # Fondo de ventana
     palette.setColor(QPalette.Window, QColor(245, 245, 245))  # gris muy claro
     palette.setColor(QPalette.WindowText, Qt.black)
 
@@ -31,8 +36,5 @@ def apply_style(app):
     palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
     palette.setColor(QPalette.HighlightedText, Qt.white)
 
-    # Asignamos la paleta al QApplication
+    # 3) Asignamos la paleta al QApplication
     app.setPalette(palette)
-
-    # Si lo deseas, también puedes cambiar el estilo base:
-    # app.setStyle("Fusion")

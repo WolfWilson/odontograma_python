@@ -17,6 +17,9 @@ from PyQt5.QtGui import (
 )
 from PyQt5.QtCore import Qt, QPointF, QRectF
 
+from PyQt5.QtWidgets import QApplication
+from Modules.style import apply_style
+
 # ----------------------------------------------------
 # Función para cargar recursos tanto en modo desarrollo
 # como en modo PyInstaller (exe)
@@ -600,12 +603,15 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Odontograma")
 
         ds = self.args.dientes.strip()
-        self.locked_mode = bool(ds)  # Si hay algo en 'dientes', bloqueamos edición
+        self.locked_mode = bool(ds)  # Bloqueo si hay parámetros 'dientes'
 
         self.odontogram_view = OdontogramView(locked=self.locked_mode)
 
         # -----------------------------
-        # Datos del paciente (form)
+        # Datos del paciente en 3 filas:
+        #   1) Credencial, Titular, Fecha
+        #   2) Prestador
+        #   3) Observaciones
         # -----------------------------
         self.credencialEdit = QLineEdit(self.args.credencial or "")
         self.prestadorEdit  = QLineEdit(self.args.prestador  or "")
@@ -614,6 +620,7 @@ class MainWindow(QMainWindow):
         self.observacionesEdit = QLineEdit(self.args.observaciones or "")
         self.observacionesEdit.setMaxLength(100)
 
+        # Bloqueo si locked_mode
         if self.locked_mode:
             self.credencialEdit.setReadOnly(True)
             self.prestadorEdit.setReadOnly(True)
@@ -621,41 +628,52 @@ class MainWindow(QMainWindow):
             self.fechaEdit.setReadOnly(True)
             self.observacionesEdit.setReadOnly(True)
 
+        # Creamos un formLayout
         formLayout = QFormLayout()
-        formLayout.addRow("Credencial:", self.credencialEdit)
-        formLayout.addRow("Prestador:", self.prestadorEdit)
-        formLayout.addRow("Titular:", self.titularEdit)
-        formLayout.addRow("Fecha:", self.fechaEdit)
-        formLayout.addRow("Observaciones:", self.observacionesEdit)
+
+        # Fila 1 => Credencial, Titular, Fecha
+        row1 = QHBoxLayout()
+        row1.addWidget(QLabel("Credencial:"))
+        row1.addWidget(self.credencialEdit)
+        row1.addSpacing(20)
+        row1.addWidget(QLabel("Titular:"))
+        row1.addWidget(self.titularEdit)
+        row1.addSpacing(20)
+        row1.addWidget(QLabel("Fecha:"))
+        row1.addWidget(self.fechaEdit)
+        formLayout.addRow(row1)
+        row1.addWidget(QLabel("Prestador:"))
+        row1.addWidget(self.prestadorEdit)
+        formLayout.addRow(row1)
+
+        # Fila 2 => Prestador
+        row2 = QHBoxLayout()
+        
+        # Fila 3 => Observaciones
+        row3 = QHBoxLayout()
+        row3.addWidget(QLabel("Observaciones:"))
+        row3.addWidget(self.observacionesEdit)
+        formLayout.addRow(row3)
 
         # -----------------------------
-        # Leyenda: Cargamos leyenda.png (imagen de referencia)
+        # Leyenda
         # -----------------------------
-        self.legendLabel = QLabel()  
-        pixmap = QPixmap("leyenda.png")  # Cambia aquí a tu archivo .png
-        self.legendLabel.setPixmap(pixmap)
-        self.legendLabel.setScaledContents(True)  # Si quieres escalar
-        self.legendLabel.setFixedWidth(280)       # Para fijar ancho, si es necesario
-        self.legendLabel.setFixedHeight(550)  #CONTENEDOR
-        # -----------------------------
-        # 3) ORGANIZAMOS: IMAGEN IZQUIERDA + ODONTOGRAMA A LA DERECHA
-        # -----------------------------
-        hLayoutOdon = QHBoxLayout()    
-        hLayoutOdon.addWidget(self.legendLabel)       # Imagen
-        hLayoutOdon.addWidget(self.odontogram_view)   # Odontograma
+        self.legendLabel = QLabel()
+        leyenda_path = resource_path("leyenda.png")
+        if os.path.exists(leyenda_path):
+            self.legendLabel.setPixmap(QPixmap(leyenda_path))
+        else:
+            self.legendLabel.setText("No se encontró leyenda.png")
+        self.legendLabel.setScaledContents(True)
+        self.legendLabel.setFixedWidth(280)
+        self.legendLabel.setFixedHeight(550)
 
-        self.state_selector = QComboBox()
-        self.state_selector.addItems(ESTADOS.keys())
-        self.state_selector.currentTextChanged.connect(self.on_state_changed)
-        if self.locked_mode:
-            self.state_selector.setEnabled(False)
-
-        # Layout horizontal para imagen de leyenda + Odontograma
+        # Odontograma a la derecha
         hLayoutOdon = QHBoxLayout()
         hLayoutOdon.addWidget(self.legendLabel)
         hLayoutOdon.addWidget(self.odontogram_view)
 
-        # Combobox para estado
+        # Combo de estados
         self.state_selector = QComboBox()
         self.state_selector.addItems(ESTADOS.keys())
         self.state_selector.currentTextChanged.connect(self.on_state_changed)
@@ -673,6 +691,9 @@ class MainWindow(QMainWindow):
         container.setLayout(mainLayout)
         self.setCentralWidget(container)
 
+        # Tamaño inicial
+        self.resize(1400, 800)
+
         # Aplica estados si hay 'dientes'
         self.apply_dental_args()
 
@@ -688,6 +709,7 @@ class MainWindow(QMainWindow):
             self.odontogram_view.apply_batch_states(parsed)
 
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--titular", default="")
@@ -699,6 +721,7 @@ def main():
     args = parser.parse_args()
 
     app = QApplication(sys.argv)
+    apply_style(app)  # <- Llamarda de style.py
     w = MainWindow(args)
     w.resize(1400, 800)  # Ajusta el tamaño de la ventana a tu gusto
     w.show()
@@ -707,3 +730,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+"""
+python dental_v05.py --credencial "123456" --titular "Carlos Pérez" --prestador "Dr. María López" --fecha "2025-02-10" --observaciones "Revisión general y tratamientos aplicados." --dientes "111,212V,313D,414MD,515O,616VI,717V,818,125,225,326,437,548,651,661,662,752,863,974,1085,1147,1245,1342,1341,135OLP,653,654,655"
+>>
+
+"""
