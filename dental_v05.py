@@ -635,7 +635,7 @@ class MainWindow(QMainWindow):
         pixmap = QPixmap("leyenda.png")  # Cambia aquí a tu archivo .png
         self.legendLabel.setPixmap(pixmap)
         self.legendLabel.setScaledContents(True)  # Si quieres escalar
-        self.legendLabel.setFixedWidth(300)       # Para fijar ancho, si es necesario
+        self.legendLabel.setFixedWidth(280)       # Para fijar ancho, si es necesario
         self.legendLabel.setFixedHeight(550)  #CONTENEDOR
         # -----------------------------
         # 3) ORGANIZAMOS: IMAGEN IZQUIERDA + ODONTOGRAMA A LA DERECHA
