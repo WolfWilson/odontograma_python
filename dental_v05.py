@@ -1,17 +1,39 @@
+#!/usr/bin/env python
+# coding: utf-8
+
 import sys
+import os
+from pathlib import Path
 import argparse
 from collections import defaultdict
 
-# Importamos PyQt5
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QGraphicsView, QGraphicsScene, QWidget,
-    QGraphicsPolygonItem, QGraphicsTextItem, QComboBox, QVBoxLayout, QHBoxLayout, 
-    QFormLayout, QLineEdit, QLabel
+    QGraphicsPolygonItem, QGraphicsTextItem, QGraphicsPixmapItem,
+    QComboBox, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QLabel
 )
 from PyQt5.QtGui import (
     QBrush, QPen, QFont, QPolygonF, QPixmap
 )
 from PyQt5.QtCore import Qt, QPointF, QRectF
+
+# ----------------------------------------------------
+# Función para cargar recursos tanto en modo desarrollo
+# como en modo PyInstaller (exe)
+# ----------------------------------------------------
+def resource_path(relative_path: str) -> str:
+    """
+    Retorna la ruta absoluta al recurso. Si estamos ejecutando
+    como un .exe compilado con PyInstaller, utilizará sys._MEIPASS.
+    De lo contrario, usará la ruta local.
+    """
+    try:
+        # En PyInstaller, _MEIPASS es donde se descomprimen los archivos
+        base_path = sys._MEIPASS
+    except Exception:
+        # En desarrollo, la base es el directorio actual
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # -----------------------------
 # Diccionario de ESTADOS
@@ -165,8 +187,40 @@ class ToothItem:
         # Flag para indicar si tiene puente
         self.has_bridge = False
 
+        # 1) Cargamos la imagen de fondo (si existe) antes de los polígonos
+        self.load_tooth_image(x, y, tooth_num)
+
+        # 2) Creamos los polígonos
         self.create_faces(x, y, size)
+
+        # 3) Creamos los overlays
         self.create_overlays(x, y, size)
+
+    def load_tooth_image(self, x, y, tooth_num_str):
+        """
+        Carga la imagen "diente_XX.png" desde la carpeta Source (si existe)
+        y la pone como fondo con zValue = -1.
+        """
+        # Ruta => "Source/diente_XX.png"
+        image_file = f"Source/diente_{tooth_num_str}.png"
+        image_path = resource_path(image_file)
+
+        if os.path.exists(image_path):
+            pixmap = QPixmap(image_path)
+            if not pixmap.isNull():
+                pix_item = QGraphicsPixmapItem(pixmap)
+                # Escalado opcional si la imagen no mide 40x40
+                w_img = pixmap.width()
+                h_img = pixmap.height()
+                if w_img != self.size or h_img != self.size:
+                    scale_factor = self.size / w_img
+                    pix_item.setScale(scale_factor)
+                pix_item.setPos(x, y)
+                pix_item.setZValue(-1)  # Al fondo
+                self.scene.addItem(pix_item)
+        else:
+            # No se encontró la imagen => no pasa nada
+            pass
 
     def create_faces(self, x, y, size):
         fs = size / 3
@@ -359,7 +413,7 @@ class ToothItem:
         tw = self.protesis_text.boundingRect().width()
         th = self.protesis_text.boundingRect().height()
         cx = top_rect.center().x() - tw/2
-        cy = top_rect.top() - -3 - th
+        cy = top_rect.top() - 5 - th
         self.protesis_text.setPos(cx, cy)
         self.protesis_text.setVisible(True)
 
@@ -418,18 +472,20 @@ class OdontogramView(QGraphicsView):
 
     def create_teeth(self):
         size = 40  # Tamaño de cada diente
-        margin = 10  # Espaciado entre dientes
+        margin = 10  # Espaciado horizontal entre dientes
 
         # Definimos las filas de dientes
         row1 = ["18","17","16","15","14","13","12","11","21","22","23","24","25","26","27","28"]
-        row2 = ["55","54","53","52","51","61","62","63","64","65"]  # Infantil sup
-        row3 = ["85","84","83","82","81","71","72","73","74","75"]  # Infantil inf
+        row2 = ["55","54","53","52","51","61","62","63","64","65"]  
+        row3 = ["85","84","83","82","81","71","72","73","74","75"]  
         row4 = ["48","47","46","45","44","43","42","41","31","32","33","34","35","36","37","38"]
         
         rows = [row1, row2, row3, row4]
-        y_positions = [50, 140, 250, 340]  # Posiciones verticales de cada fila
         
-        # Ancho total de la fila 1 (para centrar las infantiles)
+        # Aumentamos el margen vertical para que se vean mejor las imágenes
+        y_positions = [50, 200, 350, 500]  
+
+        # Cálculos para centrar filas 2 y 3 respecto a la 1
         total_width_row1 = len(row1) * (size + margin) - margin  
         total_width_row2 = len(row2) * (size + margin) - margin  
         total_width_row3 = len(row3) * (size + margin) - margin  
@@ -535,7 +591,7 @@ class OdontogramView(QGraphicsView):
 
 
 # --------------------------------------------------------------------
-# Ventana principal con la imagen a la IZQUIERDA del odontograma
+# Ventana principal
 # --------------------------------------------------------------------
 class MainWindow(QMainWindow):
     def __init__(self, args):
@@ -549,7 +605,7 @@ class MainWindow(QMainWindow):
         self.odontogram_view = OdontogramView(locked=self.locked_mode)
 
         # -----------------------------
-        # 1) SECCIÓN DATOS DEL PACIENTE
+        # Datos del paciente (form)
         # -----------------------------
         self.credencialEdit = QLineEdit(self.args.credencial or "")
         self.prestadorEdit  = QLineEdit(self.args.prestador  or "")
@@ -573,7 +629,7 @@ class MainWindow(QMainWindow):
         formLayout.addRow("Observaciones:", self.observacionesEdit)
 
         # -----------------------------
-        # 2) CREAMOS UN LABEL CON LA IMAGEN
+        # Leyenda: Cargamos leyenda.png (imagen de referencia)
         # -----------------------------
         self.legendLabel = QLabel()  
         pixmap = QPixmap("leyenda.png")  # Cambia aquí a tu archivo .png
@@ -594,12 +650,22 @@ class MainWindow(QMainWindow):
         if self.locked_mode:
             self.state_selector.setEnabled(False)
 
-        # -----------------------------
-        # 4) CONSTRUIMOS EL LAYOUT PRINCIPAL
-        # -----------------------------
+        # Layout horizontal para imagen de leyenda + Odontograma
+        hLayoutOdon = QHBoxLayout()
+        hLayoutOdon.addWidget(self.legendLabel)
+        hLayoutOdon.addWidget(self.odontogram_view)
+
+        # Combobox para estado
+        self.state_selector = QComboBox()
+        self.state_selector.addItems(ESTADOS.keys())
+        self.state_selector.currentTextChanged.connect(self.on_state_changed)
+        if self.locked_mode:
+            self.state_selector.setEnabled(False)
+
+        # Layout principal
         mainLayout = QVBoxLayout()
-        mainLayout.addLayout(formLayout)       # Datos del paciente (arriba)
-        mainLayout.addLayout(hLayoutOdon)      # Imagen + Odontograma lado a lado
+        mainLayout.addLayout(formLayout)
+        mainLayout.addLayout(hLayoutOdon)
         mainLayout.addWidget(QLabel("Estado actual:"))
         mainLayout.addWidget(self.state_selector)
 
@@ -634,19 +700,10 @@ def main():
 
     app = QApplication(sys.argv)
     w = MainWindow(args)
-    w.resize(1200, 600)
+    w.resize(1400, 800)  # Ajusta el tamaño de la ventana a tu gusto
     w.show()
     sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
     main()
-
-
-#CALL
-
-"""
-python dental_v04.py --credencial "123456" --titular "Carlos Pérez" --prestador "Dr. María López" --fecha "2025-02-10" --observaciones "Revisión general y tratamientos aplicados." --dientes "111,212V,313D,414MD,515O,616VI,717V,818,125,225,326,437,548,651,661,662,752,863,974,1085,1147,1245,1342,1341,135OLP,653,654,655"
-
-
-"""
