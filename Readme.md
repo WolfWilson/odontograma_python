@@ -29,10 +29,15 @@ cd odontograma-digital
 pip install -r requirements.txt
 
 ###🔹 Ejecución en Modo Manual
-    python odontrograma.py
+```
+python odontrograma.py
+```
 
 ###🔹 Ejecución con Parámetros (Modo Automático)
+```
     python odontograma.py --credencial "123456" --titular "Carlos Pérez" --prestador "Dr. María López" --fecha "2025-02-10" --observaciones "Revisión general y tratamientos aplicados." --dientes "111,212V,313D,414MD,515O,616VI,717V,818,125,225,326,437,548,651,661,662,752,863,974,1085,1147,1245,1342,1341,135OLP,653,654,655"
+```
+
 
 ✅ Esto aplicará automáticamente los estados especificados a los dientes correspondientes.
 
