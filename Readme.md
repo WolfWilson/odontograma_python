@@ -77,7 +77,17 @@ EJEMPLO DE LA VISUALIZACIÓN:
 
 ###  🏗 Estructura del Código
 
-📂 odontograma-digital/ ├── 📄 odontograma.py # Código principal ├── 📂 Modules/ │ ├── style.css # Archivo de parámetros visuales de la app ├── 📂 src/ # Imágenes y capturas ├── 📂 templates/ # HTML para versión web (opcional) ├── 📄 requirements.txt # Dependencias ├── 📄 README.md # Documentación
+### 🏗 **Estructura del Código**
+
+📂 **odontograma-digital/**
+├── 📜 **odontograma.py** - Código principal  
+├── 📂 **Modules/** - Archivos de configuración y estilos  
+│   ├── 🎨 **style.css** - Archivo de parámetros visuales de la app  
+├── 📂 **src/** - Imágenes y capturas  
+├── 📂 **templates/** - HTML para versión web *(opcional)*  
+├── 📜 **requirements.txt** - Dependencias  
+└── 📜 **README.md** - Documentación  
+
 
 ### 🛠 Posibles Mejoras y Futuro Desarrollo 
 
