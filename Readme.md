@@ -120,7 +120,9 @@ Si quieres mejorar este proyecto:
 Este proyecto está bajo la Licencia MIT, lo que significa que puedes usarlo y modificarlo libremente.
 
 
-📌 Autor: Wilson Wolf / INSSSEP-CPI\  📌Coloborador/a: Antonella Bouvier [antobouvier](https://github.com/antobouvier)  📌 Repositorio: [odontograma_python](https://github.com/WolfWilson/odontrograma_python)
+📌 Autor: Wilson Wolf / INSSSEP-CPI  
+📌Coloborador/a: Antonella Bouvier [antobouvier](https://github.com/antobouvier)  
+📌 Repositorio: [odontograma_python](https://github.com/WolfWilson/odontrograma_python)
 
 ## 📬 Contacto 
 📧 Email: wolfwilson1986@outlook.com
