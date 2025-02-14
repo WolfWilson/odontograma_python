@@ -15,14 +15,14 @@ Sistema interactivo para la representación de un **odontograma digital**, permi
 
 ---
 
-## 🚀 **Instalación y Ejecución**
-### **🔹 Requisitos**
+## 🚀 Instalación y Ejecución
+### 🔹 Requisitos
 - Python 3.12.5+
 - PyQt5
 - Flask/Django *(opcional para versión web)*
 - argparse
 
-### **🔹 Instalación**
+### 🔹 Instalación
 
 git clone https://github.com/tuusuario/odontograma-digital.git
 cd odontograma-digital
@@ -36,8 +36,8 @@ pip install -r requirements.txt
 
 ✅ Esto aplicará automáticamente los estados especificados a los dientes correspondientes.
 
-## **🛠 Procesamiento de Parámetros **
-### ** 📌 Parámetros Aceptados **
+## 🛠 Procesamiento de Parámetros
+### 📌 Parámetros Aceptados 
 
 [![odonto-parametros.png](https://i.postimg.cc/J46VzcLG/odonto-parametros.png)](https://postimg.cc/PPwF6DNj)
 --Validaciones antes de procesar
@@ -47,7 +47,7 @@ pip install -r requirements.txt
 - Diente válido (de 11 a 85).
 - Caras válidas (solo M, D, V, B, L, P, I, O, G)
 
-## **🔍 Formato del Parámetro --dientes**
+## 🔍 Formato del Parámetro --dientes
         {ESTADO}{DIENTE}{CARAS opcionales}
     --dientes "325,126VI,327,428V"
 [![odont-parametros-diente.png](https://i.postimg.cc/GpnMLHH4/odont-parametros-diente.png)](https://postimg.cc/4Ywvw4vG)
@@ -55,7 +55,7 @@ pip install -r requirements.txt
 ✔ Soporta múltiples estados en un solo diente.
 ✔ El Puente (estado 6) se dibuja individualmente en cada diente involucrado.
 
-## **🎨 Representación Gráfica**
+## 🎨 Representación Gráfica
 Cada diente se dibuja con 5 caras poligonales:
 
 - M (Mesial)
@@ -69,13 +69,13 @@ Cada diente se dibuja con 5 caras poligonales:
 
 [![imagen-2025-02-14-114053727.png](https://i.postimg.cc/c4nx2bYd/imagen-2025-02-14-114053727.png)](https://postimg.cc/2VCNBT2t)
 
-**EJEMPLO DE LA VISUALIZACIÓN:**
+EJEMPLO DE LA VISUALIZACIÓN:
 [![odontograma-Carlos-P-rez-2025-02-10.png](https://i.postimg.cc/g2FyR1d5/odontograma-Carlos-P-rez-2025-02-10.png)](https://postimg.cc/PPy8n3Cz)
 
-### ** Estados y su Representación Visual **
+###  Estados y su Representación Visual 
 [![leyenda.png](https://i.postimg.cc/YqgnJ6C5/leyenda.png)](https://postimg.cc/zVzFhRW7)
 
-### ** 🏗 Estructura del Código **
+###  🏗 Estructura del Código
 
 📂 odontograma-digital/
 
@@ -86,18 +86,18 @@ Cada diente se dibuja con 5 caras poligonales:
 │── 📄 requirements.txt  # Dependencias
 │── 📄 README.md  # Documentación
 
-### ** 🛠 Posibles Mejoras y Futuro Desarrollo **
+### 🛠 Posibles Mejoras y Futuro Desarrollo 
 
 ✅ Integración con Base de Datos
 ✅ Versión Web-App con Flask/Django
 ✅ Exportación de datos a PDF / JSON
 ✅ Optimización de la carga de parámetros y manejo de errores
 
-## ** 📸 Capturas de Pantalla **
+## 📸 Capturas de Pantalla 
 
 [![odontograma-SIN-TITULAR-SIN-FECHA.png](https://i.postimg.cc/xdgLwCHD/odontograma-SIN-TITULAR-SIN-FECHA.png)](https://postimg.cc/5HYHvfnn)
 
-## ** 🤝 Contribuciones **
+##  🤝 Contribuciones 
 
 ¡Las contribuciones son bienvenidas!
 Si quieres mejorar este proyecto:
@@ -106,14 +106,14 @@ Si quieres mejorar este proyecto:
 - Crea una nueva rama (feature-mejora).
 - Realiza un pull request.
 
-## ** 📜 Licencia **
+## 📜 Licencia 
 
 ste proyecto está bajo la Licencia MIT, lo que significa que puedes usarlo y modificarlo libremente.
 
 📌 Autor: Wilson Wolf / INSSSEP-CPI
 📌 Repositorio: GitHub - **[odontrograma_python](ste proyecto está bajo la Licencia MIT, lo que significa que puedes usarlo y modificarlo libremente.  📌 Autor: Tu Nombre / Organización 📌 Repositorio: GitHub - odontograma-digital "odontrograma_python")**
 
-## ** 📬 Contacto **
+## 📬 Contacto 
 📧 Email: wolfwilson1986@outlook.com
 🌐 Sitio Web: https://github.com/WolfWilson
 
