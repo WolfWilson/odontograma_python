@@ -116,7 +116,7 @@ Si quieres mejorar este proyecto:
 Este proyecto está bajo la Licencia MIT, lo que significa que puedes usarlo y modificarlo libremente.
 
 📌 Autor: Wilson Wolf / INSSSEP-CPI
-📌 Repositorio: GitHub - **[odontrograma_python]
+📌 Repositorio: [odontograma_python](https://github.com/WolfWilson/odontrograma_python)
 
 ## 📬 Contacto 
 📧 Email: wolfwilson1986@outlook.com
