@@ -82,7 +82,7 @@ EJEMPLO DE LA VISUALIZACIÓN:
 📂 **odontograma-digital/**
 ├── 📜 **odontograma.py** - Código principal  
 ├── 📂 **Modules/** - Archivos de configuración y estilos  
-│   ├── 🎨 **style.css** - Archivo de parámetros visuales de la app  
+│   ├── 🎨 **style.py** - Archivo de parámetros visuales de la app  
 ├── 📂 **src/** - Imágenes y capturas  
 ├── 📂 **templates/** - HTML para versión web *(opcional)*  
 ├── 📜 **requirements.txt** - Dependencias  
