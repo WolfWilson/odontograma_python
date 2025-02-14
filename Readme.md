@@ -1,6 +1,6 @@
 # 🦷 Odontograma Digital - Sistema de Registro Odontológico
 
-![Licencia](https://img.shields.io/badge/Licencia-MIT-green.svg) ![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg) ![Framework](https://img.shields.io/badge/Framework-PyQt5-orange.svg) ![Status](https://img.shields.io/badge/Estado-Estable-success.svg)
+![Licencia](https://img.shields.io/badge/Licencia-MIT-green.svg) ![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg) ![Framework](https://img.shields.io/badge/Framework-PyQt5-orange.svg) ![Status](https://img.shields.io/badge/Estado-Estable-success.svg)
 
 Sistema interactivo para la representación de un **odontograma digital**, permitiendo el registro y visualización de **estados bucales** mediante selección manual o **parámetros desde línea de comandos**.
 
