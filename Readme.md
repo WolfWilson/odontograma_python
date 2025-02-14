@@ -23,7 +23,7 @@ Sistema interactivo para la representación de un **odontograma digital**, permi
 - argparse
 
 ### **🔹 Instalación**
-```sh
+
 git clone https://github.com/tuusuario/odontograma-digital.git
 cd odontograma-digital
 pip install -r requirements.txt
@@ -118,13 +118,3 @@ ste proyecto está bajo la Licencia MIT, lo que significa que puedes usarlo y mo
 🌐 Sitio Web: https://github.com/WolfWilson
 
 
-
-
-
-
-
-
-
-
-
-.
