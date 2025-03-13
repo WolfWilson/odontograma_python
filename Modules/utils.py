@@ -26,13 +26,13 @@ ESTADOS = {
 ESTADOS_POR_NUM = {v: k for k, v in ESTADOS.items()}
 
 
-def resource_path(relative_path: str) -> str:
-    """
-    Retorna la ruta absoluta del recurso, compatible con PyInstaller y modo desarrollo.
-    """
-    try:
+def resource_path(relative_path):
+    """ Obtiene el path correcto, ya sea en desarrollo o en el ejecutable compilado. """
+    if getattr(sys, 'frozen', False):
+        # Si el programa está empaquetado con PyInstaller
         base_path = sys._MEIPASS
-    except Exception:
+    else:
+        # Si el programa está en ejecución normal
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
