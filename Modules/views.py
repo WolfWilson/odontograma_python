@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Modules/views.py
 # coding: utf-8
 
 import os
@@ -9,7 +10,12 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 
-from Modules.modelos import OdontogramView
+# Opción 1: Usar la versión CON imágenes (por defecto).
+# from Modules.modelos import OdontogramView
+
+# Opción 2: Usar la versión SIN imágenes
+from Modules.modelos_sin_imagenes import OdontogramView
+
 from Modules.utils import (
     resource_path,
     parse_dental_states,
@@ -26,9 +32,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Odontograma")
 
         # Decide si la interfaz estará bloqueada o no.
-        # Ejemplo: si "dientes" viene vacío => lo dejamos editable (False).
-        #          si "dientes" tiene algo => lo bloqueamos (True).
-        # Ajusta la lógica según tu preferencia.
         self.locked_mode = bool(data_dict.get("dientes"))
 
         # Creamos la vista del odontograma con la bandera locked_mode
@@ -115,10 +118,9 @@ class MainWindow(QMainWindow):
         container = QWidget()
         container.setLayout(mainLayout)
         self.setCentralWidget(container)
-
         self.resize(1400, 800)
 
-        # Aplica estados
+        # Aplica los estados dentales
         self.apply_dental_args(data_dict.get("dientes", ""))
 
     def on_state_changed(self, new_state):
@@ -149,6 +151,5 @@ class MainWindow(QMainWindow):
 
     def apply_dental_args(self, dientes_str):
         if dientes_str:
-            from Modules.utils import parse_dental_states
             parsed = parse_dental_states(dientes_str)
             self.odontogram_view.apply_batch_states(parsed)

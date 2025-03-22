@@ -1,15 +1,15 @@
-#Modules/modelos.py
+# Modules/modelos_sin_imagenes.py
 # coding: utf-8
 
-print("El módulo modelos.py se está ejecutando")
+print("El módulo modelos_sin_imagenes.py se está ejecutando (sin cargar imágenes).")
 
 import os
 from PyQt5.QtWidgets import (
-    QGraphicsPolygonItem, QGraphicsTextItem, QGraphicsPixmapItem,
+    QGraphicsPolygonItem, QGraphicsTextItem,
     QGraphicsView, QGraphicsScene
 )
 from PyQt5.QtGui import (
-    QBrush, QPen, QFont, QPolygonF, QPixmap
+    QBrush, QPen, QFont, QPolygonF
 )
 from PyQt5.QtCore import Qt, QPointF
 
@@ -84,28 +84,20 @@ class ToothItem:
         # Flag para puente
         self.has_bridge = False
 
-        # 1) Imagen de fondo
-        self.load_tooth_image(x, y, tooth_num)
+        # 1) (SIN cargar imágenes) => Comentado
+        # self.load_tooth_image(x, y, tooth_num)
+
         # 2) Polígonos (caras)
         self.create_faces(x, y, size)
         # 3) Overlays (texto y formas)
         self.create_overlays(x, y, size)
 
+    # Si quisieras, podrías poner aquí un método vacío:
     def load_tooth_image(self, x, y, tooth_num_str):
-        image_file = f"Source/diente_{tooth_num_str}.png"
-        image_path = resource_path(image_file)
-        if os.path.exists(image_path):
-            pixmap = QPixmap(image_path)
-            if not pixmap.isNull():
-                pix_item = QGraphicsPixmapItem(pixmap)
-                w_img = pixmap.width()
-                h_img = pixmap.height()
-                if w_img != self.size or h_img != self.size:
-                    scale_factor = self.size / w_img
-                    pix_item.setScale(scale_factor)
-                pix_item.setPos(x, y)
-                pix_item.setZValue(-1)
-                self.scene.addItem(pix_item)
+        """
+        Método intencionalmente vacío para no cargar imágenes.
+        """
+        pass
 
     def create_faces(self, x, y, size):
         fs = size / 3
@@ -204,7 +196,7 @@ class ToothItem:
             self.scene.addItem(ov)
 
     # -----------------------
-    # Métodos de estado
+    # Métodos de estado (igual que antes)
     # -----------------------
     def apply_state(self, state_name):
         if state_name == "Ninguno":
@@ -370,7 +362,7 @@ class OdontogramView(QGraphicsView):
                 t = ToothItem(x, y, size, self.scene, self, tnum)
                 tooth_row.append(t)
 
-                # Texto debajo del diente
+                # Etiqueta debajo del diente
                 txt = QGraphicsTextItem(tnum)
                 txt.setFont(QFont("Arial", 10))
                 txt.setDefaultTextColor(Qt.black)
