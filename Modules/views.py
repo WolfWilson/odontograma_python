@@ -5,35 +5,34 @@
 import os
 from PyQt5.QtWidgets import (
     QMainWindow, QHBoxLayout, QVBoxLayout, QFormLayout, QLineEdit,
-    QLabel, QPushButton, QComboBox, QWidget
+    QLabel, QPushButton, QWidget
 )
-from PyQt5.QtGui import QPixmap, QIcon
+from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 
-# from Modules.modelos import OdontogramView  # con imágenes
-from Modules.modelos_sin_imagenes import OdontogramView  # sin imágenes
-from Modules.utils import (
-    resource_path,
-    parse_dental_states,
-    ESTADOS
-)
+# from Modules.modelos import OdontogramView
+from Modules.modelos_sin_imagenes import OdontogramView
+
+from Modules.utils import resource_path, parse_dental_states
+from Modules.menu_estados import MenuEstados
+
 
 class MainWindow(QMainWindow):
     def __init__(self, data_dict):
         super().__init__()
         self.setWindowTitle("Odontograma")
 
-        # 1) Icono de ventana => src/icon.png
+        # Determina si hay parametros => locked
+        self.locked_mode = bool(data_dict.get("dientes"))
+
+        # Icono
         icon_path = resource_path("src/icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
-        else:
-            print("No se encontró src/icon.png para ícono")
 
-        # 2) Fondo => src/background.jpg
+        # Fondo
         bg_path = resource_path("src/background.jpg")
         if os.path.exists(bg_path):
-            # En Windows, conviene reemplazar \ con / en la ruta
             bg_path_ = bg_path.replace('\\', '/')
             css = f"""
             QMainWindow {{
@@ -43,32 +42,26 @@ class MainWindow(QMainWindow):
             }}
             """
             self.setStyleSheet(css)
-        else:
-            print("No se encontró src/background.jpg para fondo")
 
-        # 3) Vista odontograma
-        self.locked_mode = bool(data_dict.get("dientes"))
+        # Odontograma
         self.odontogram_view = OdontogramView(locked=self.locked_mode)
-        # Mantenemos el fondo de la escena en blanco
         self.odontogram_view.setStyleSheet("background-color: white;")
 
-        # 4) Campos
+        # Campos
         self.credencialEdit = QLineEdit(data_dict.get("credencial", ""))
         self.prestadorEdit  = QLineEdit(data_dict.get("prestador", ""))
         self.afiliadoEdit   = QLineEdit(data_dict.get("afiliado", ""))
         self.fechaEdit      = QLineEdit(data_dict.get("fecha", ""))
         self.observacionesEdit = QLineEdit(data_dict.get("observaciones", ""))
-        self.observacionesEdit.setMaxLength(100)
 
         if self.locked_mode:
-            for field in [self.credencialEdit, self.prestadorEdit,
-                          self.afiliadoEdit, self.fechaEdit, self.observacionesEdit]:
-                field.setReadOnly(True)
+            for w in [self.credencialEdit, self.prestadorEdit, self.afiliadoEdit,
+                      self.fechaEdit, self.observacionesEdit]:
+                w.setReadOnly(True)
 
-        # 5) Layout formulario
+        # Layout formulario
         formLayout = QFormLayout()
 
-        # Fila 1
         row1 = QHBoxLayout()
         row1.addWidget(QLabel("Credencial:"))
         row1.addWidget(self.credencialEdit)
@@ -80,76 +73,69 @@ class MainWindow(QMainWindow):
         row1.addWidget(self.fechaEdit)
         formLayout.addRow(row1)
 
-        # Fila 2 (Prestador)
         row2 = QHBoxLayout()
         row2.addWidget(QLabel("Prestador:"))
         row2.addWidget(self.prestadorEdit)
         formLayout.addRow(row2)
 
-        # Fila 3 (Observaciones)
         row3 = QHBoxLayout()
         row3.addWidget(QLabel("Observaciones:"))
         row3.addWidget(self.observacionesEdit)
         formLayout.addRow(row3)
 
-        # 6) Leyenda, Estado, Botón Descargar
-        self.state_selector = QComboBox()
-        self.state_selector.addItems(ESTADOS.keys())
-        self.state_selector.currentTextChanged.connect(self.on_state_changed)
-        if self.locked_mode:
-            self.state_selector.setEnabled(False)
-
-        self.legendLabel = QLabel()
-        leyenda_path = resource_path("src/leyenda.png")
-        if os.path.exists(leyenda_path):
-            self.legendLabel.setPixmap(QPixmap(leyenda_path))
-        else:
-            self.legendLabel.setText("No se encontró leyenda.png")
-        self.legendLabel.setScaledContents(True)
-        self.legendLabel.setFixedWidth(280)
-        self.legendLabel.setFixedHeight(550)
+        # Panel de estados con íconos-botones
+        self.menu_estados = MenuEstados(
+            on_estado_selected=self.on_estado_clicked,
+            locked=self.locked_mode,
+            title="Lista de Estados"
+        )
 
         self.descargarButton = QPushButton("Descargar")
         self.descargarButton.clicked.connect(self.on_descargar_clicked)
 
-        legendLayout = QVBoxLayout()
-        legendLayout.addWidget(self.legendLabel)
-        lblEstado = QLabel("Estado actual:")
-        legendLayout.addWidget(lblEstado)
-        legendLayout.addWidget(self.state_selector)
-        legendLayout.addWidget(self.descargarButton)
+        leftLayout = QVBoxLayout()
+        leftLayout.addWidget(self.menu_estados)
+        leftLayout.addWidget(self.descargarButton)
+        leftLayout.addStretch()
 
         odontoLayout = QVBoxLayout()
         odontoLayout.addWidget(self.odontogram_view)
 
-        hLayoutOdon = QHBoxLayout()
-        hLayoutOdon.addLayout(legendLayout)
-        hLayoutOdon.addLayout(odontoLayout)
+        hLayout = QHBoxLayout()
+        hLayout.addLayout(leftLayout)
+        hLayout.addLayout(odontoLayout)
 
         mainLayout = QVBoxLayout()
         mainLayout.addLayout(formLayout)
-        mainLayout.addLayout(hLayoutOdon)
+        mainLayout.addLayout(hLayout)
 
         container = QWidget()
         container.setLayout(mainLayout)
         self.setCentralWidget(container)
-
         self.resize(1400, 800)
+
+        # Aplica estados si hay 'dientes'
         self.apply_dental_args(data_dict.get("dientes", ""))
 
-    def on_state_changed(self, new_state):
-        self.odontogram_view.set_current_state(new_state)
+    def on_estado_clicked(self, estado_str):
+        """
+        Callback al hacer clic en un botón de estado (icono).
+        => Cambia el estado actual del odontograma
+        => Al hacer clic en caras, se dibuja esa acción.
+        """
+        print(f"Estado seleccionado: {estado_str}")
+        self.odontogram_view.set_current_state(estado_str)
 
     def on_descargar_clicked(self):
         from PyQt5.QtWidgets import QFileDialog
 
-        afiliado = self.afiliadoEdit.text().strip().replace(" ", "_")
+        afil = self.afiliadoEdit.text().strip().replace(" ", "_")
         fecha = self.fechaEdit.text().strip().replace(" ", "_")
-        if not afiliado:
-            afiliado = "SIN_AFILIADO"
+        if not afil:
+            afil = "SIN_AFILIADO"
         if not fecha:
             fecha = "SIN_FECHA"
-        file_name = f"odontograma_{afiliado}_{fecha}.png"
+        file_name = f"odontograma_{afil}_{fecha}.png"
 
         folder_path = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta", "")
         if not folder_path:
@@ -165,5 +151,6 @@ class MainWindow(QMainWindow):
 
     def apply_dental_args(self, dientes_str):
         if dientes_str:
+            from Modules.utils import parse_dental_states
             parsed = parse_dental_states(dientes_str)
             self.odontogram_view.apply_batch_states(parsed)
