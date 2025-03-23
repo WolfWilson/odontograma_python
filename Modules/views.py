@@ -123,7 +123,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
 
         # 7) Fijar tamaño => 1200x700 (ajusta si quieres)
-        self.setFixedSize(1200, 700)
+        self.setFixedSize(1300, 800)
 
         # Aplica estados si hay 'dientes'
         self.apply_dental_args(data_dict.get("dientes", ""))
