@@ -3,10 +3,9 @@
 
 import os
 from PyQt5.QtWidgets import (
-    QWidget, QGroupBox, QVBoxLayout, QHBoxLayout,
-    QToolButton, QSizePolicy
+    QWidget, QGroupBox, QVBoxLayout, QToolButton
 )
-from PyQt5.QtGui import QIcon, QPixmap, QFont
+from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QSize
 from Modules.utils import resource_path
 
@@ -27,12 +26,12 @@ ESTADOS_ICONOS = {
     "Supernumerario": "icon_supernumerario.png"
 }
 
-
 class MenuEstados(QWidget):
     """
-    Un contenedor (QGroupBox) con filas, cada una un QToolButton con icono.
-    Si locked=True, los botones quedan deshabilitados.
+    Un contenedor (QGroupBox) con un botón por cada estado,
+    mostrando un ícono más grande (50×50) y texto.
     Al hacer clic en un botón, se llama on_estado_selected(estado_str).
+    Si locked=True, los botones están deshabilitados.
     """
     def __init__(self, on_estado_selected, locked=False, title="Lista de Estados"):
         super().__init__()
@@ -44,24 +43,23 @@ class MenuEstados(QWidget):
         layout_group.setSpacing(10)
 
         for estado_text, icon_file in ESTADOS_ICONOS.items():
-            # Crea un botón con icono y texto
+            # Creamos un QToolButton con ícono y texto
             btn = QToolButton()
             btn.setText(estado_text)
-            btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)  
-            # O ToolButtonTextUnderIcon si quieres el texto debajo
+            btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
-            # Ajusta el tamaño del icono
-            btn.setIconSize(QSize(30, 30))
+            # Ajusta el tamaño de ícono a 50×50
+            btn.setIconSize(QSize(80, 80))
 
-            # Carga el icono
+            # Carga el ícono desde src/
             icon_path = resource_path(os.path.join("src", icon_file))
             if os.path.exists(icon_path):
                 btn.setIcon(QIcon(icon_path))
             else:
-                print(f"No se encontró icono: {icon_path}")
-            
-            # Callback con lambda
-            btn.clicked.connect(lambda _, e=estado_text: self.handle_click(e))
+                print(f"[WARN] Ícono no encontrado: {icon_path}")
+
+            # Conectamos la señal de clic
+            btn.clicked.connect(lambda _, est=estado_text: self.handle_click(est))
             btn.setEnabled(not locked)
 
             layout_group.addWidget(btn)
@@ -74,6 +72,6 @@ class MenuEstados(QWidget):
         self.setLayout(main_layout)
 
     def handle_click(self, estado_str):
-        """Si no está locked y hay callback, lo llamamos."""
+        """Invoca el callback on_estado_selected si no está locked."""
         if not self.locked and callable(self.on_estado_selected):
             self.on_estado_selected(estado_str)

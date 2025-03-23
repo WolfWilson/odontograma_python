@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 
+# Opción con/sin imágenes
 # from Modules.modelos import OdontogramView
 from Modules.modelos_sin_imagenes import OdontogramView
 
@@ -22,15 +23,15 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Odontograma")
 
-        # Determina si hay parametros => locked
+        # 1) Determina si hay parámetros => locked
         self.locked_mode = bool(data_dict.get("dientes"))
 
-        # Icono
+        # 2) Icono
         icon_path = resource_path("src/icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
-        # Fondo
+        # 3) Fondo
         bg_path = resource_path("src/background.jpg")
         if os.path.exists(bg_path):
             bg_path_ = bg_path.replace('\\', '/')
@@ -43,45 +44,50 @@ class MainWindow(QMainWindow):
             """
             self.setStyleSheet(css)
 
-        # Odontograma
+        # 4) Vista odontograma
         self.odontogram_view = OdontogramView(locked=self.locked_mode)
         self.odontogram_view.setStyleSheet("background-color: white;")
 
-        # Campos
+        # 5) Campos
         self.credencialEdit = QLineEdit(data_dict.get("credencial", ""))
         self.prestadorEdit  = QLineEdit(data_dict.get("prestador", ""))
         self.afiliadoEdit   = QLineEdit(data_dict.get("afiliado", ""))
         self.fechaEdit      = QLineEdit(data_dict.get("fecha", ""))
         self.observacionesEdit = QLineEdit(data_dict.get("observaciones", ""))
 
+        # Si locked => no editable
         if self.locked_mode:
             for w in [self.credencialEdit, self.prestadorEdit, self.afiliadoEdit,
                       self.fechaEdit, self.observacionesEdit]:
                 w.setReadOnly(True)
 
-        # Layout formulario
+        # 6) Layout formulario
         formLayout = QFormLayout()
 
+        # Fila 1 => Credencial, Afiliado, Fecha, Prestador
         row1 = QHBoxLayout()
         row1.addWidget(QLabel("Credencial:"))
         row1.addWidget(self.credencialEdit)
         row1.addSpacing(20)
+
         row1.addWidget(QLabel("Afiliado:"))
         row1.addWidget(self.afiliadoEdit)
         row1.addSpacing(20)
+
         row1.addWidget(QLabel("Fecha:"))
         row1.addWidget(self.fechaEdit)
+        row1.addSpacing(20)
+
+        row1.addWidget(QLabel("Prestador:"))
+        row1.addWidget(self.prestadorEdit)
+
         formLayout.addRow(row1)
 
+        # Fila 2 => Observaciones
         row2 = QHBoxLayout()
-        row2.addWidget(QLabel("Prestador:"))
-        row2.addWidget(self.prestadorEdit)
+        row2.addWidget(QLabel("Observaciones:"))
+        row2.addWidget(self.observacionesEdit)
         formLayout.addRow(row2)
-
-        row3 = QHBoxLayout()
-        row3.addWidget(QLabel("Observaciones:"))
-        row3.addWidget(self.observacionesEdit)
-        formLayout.addRow(row3)
 
         # Panel de estados con íconos-botones
         self.menu_estados = MenuEstados(
@@ -93,14 +99,17 @@ class MainWindow(QMainWindow):
         self.descargarButton = QPushButton("Descargar")
         self.descargarButton.clicked.connect(self.on_descargar_clicked)
 
+        # Layout izquierdo
         leftLayout = QVBoxLayout()
         leftLayout.addWidget(self.menu_estados)
         leftLayout.addWidget(self.descargarButton)
         leftLayout.addStretch()
 
+        # Layout derecho => Odontograma
         odontoLayout = QVBoxLayout()
         odontoLayout.addWidget(self.odontogram_view)
 
+        # Unimos ambos
         hLayout = QHBoxLayout()
         hLayout.addLayout(leftLayout)
         hLayout.addLayout(odontoLayout)
@@ -112,7 +121,9 @@ class MainWindow(QMainWindow):
         container = QWidget()
         container.setLayout(mainLayout)
         self.setCentralWidget(container)
-        self.resize(1400, 800)
+
+        # 7) Fijar tamaño => 1200x700 (ajusta si quieres)
+        self.setFixedSize(1200, 700)
 
         # Aplica estados si hay 'dientes'
         self.apply_dental_args(data_dict.get("dientes", ""))
@@ -151,6 +162,5 @@ class MainWindow(QMainWindow):
 
     def apply_dental_args(self, dientes_str):
         if dientes_str:
-            from Modules.utils import parse_dental_states
             parsed = parse_dental_states(dientes_str)
             self.odontogram_view.apply_batch_states(parsed)
