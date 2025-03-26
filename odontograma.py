@@ -72,3 +72,14 @@ if __name__ == "__main__":
 
 
 #python odontograma.py 87
+""""
+pyinstaller --onefile --noconsole `                                                                                                           
+>>     --add-data "Source;Source" `
+>>     --add-data "leyenda.png;." `
+>>     --hidden-import=Modules.conexion_db `
+>>     --hidden-import=Modules.modelos `
+>>     --hidden-import=Modules.views `
+>>     --hidden-import=Modules.utils `
+>>     --hidden-import=Modules.style `
+>>     odontograma.py"
+"""
