@@ -1,3 +1,4 @@
+#test_conexion_Concentrador.py
 import pyodbc
 
 def main():
