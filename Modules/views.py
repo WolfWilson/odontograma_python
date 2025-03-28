@@ -4,7 +4,8 @@
 import os
 from PyQt5.QtWidgets import (
     QMainWindow, QHBoxLayout, QVBoxLayout, QFormLayout, QLineEdit,
-    QLabel, QPushButton, QWidget, QTabWidget
+    QLabel, QPushButton, QWidget, QTabWidget, QTableWidget, QTableWidgetItem,
+    QCheckBox
 )
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
@@ -12,78 +13,88 @@ from PyQt5.QtCore import Qt
 from Modules.modelos_sin_imagenes import OdontogramView
 from Modules.utils import resource_path, parse_dental_states
 from Modules.menu_estados import MenuEstados
+from Modules.conexion_db import get_bocas_consulta_estados, get_odontograma_data
+
 
 class MainWindow(QMainWindow):
     def __init__(self, data_dict):
         super().__init__()
-        self.setWindowTitle("Odontograma")
+        self.setWindowTitle("Odontograma (Mostrar Fecha, Efector y Observaciones)")
 
-        # 1) Modo lectura si hay parámetros
-        self.locked_mode = bool(data_dict.get("dientes"))
+        # 1) Recibir parámetros
+        self.data_dict = data_dict
+        self.idafiliado     = data_dict.get("credencial","")
+        self.fecha          = data_dict.get("fecha","")
+        self.efectorColegio = data_dict.get("efectorColegio","")
+        self.efectorCodFact = data_dict.get("efectorCodFact","")
 
         # 2) Icono
         icon_path = resource_path("src/icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
-        # 3) Prepara stylesheet global
+        # 3) Stylesheet
         self.setup_stylesheet()
 
-        # 4) Vista odontograma
-        self.odontogram_view = OdontogramView(locked=self.locked_mode)
-        # Se mantendrá un fondo semitransparente o blanco para la zona de dibujo
+        # 4) Odontograma
+        self.odontogram_view = OdontogramView(locked=False)
 
-        # 5) Campos
-        self.credencialEdit = QLineEdit(data_dict.get("credencial", ""))
-        self.prestadorEdit  = QLineEdit(data_dict.get("prestador", ""))
-        self.afiliadoEdit   = QLineEdit(data_dict.get("afiliado", ""))
-        self.fechaEdit      = QLineEdit(data_dict.get("fecha", ""))
-        self.observacionesEdit = QLineEdit(data_dict.get("observaciones", ""))
+        # 5) Inputs (se muestran arriba)
+        self.credencialEdit = QLineEdit(self.idafiliado)
+        self.fechaEdit      = QLineEdit(self.fecha)
 
-        if self.locked_mode:
-            for w in [self.credencialEdit, self.prestadorEdit, self.afiliadoEdit,
-                      self.fechaEdit, self.observacionesEdit]:
-                w.setReadOnly(True)
+        # Observaciones se va actualizando al seleccionar la fila
+        self.observacionesEdit = QLineEdit("")
+        self.observacionesEdit.setMaxLength(100)
 
-        # 6) Layout formulario
+        # Llamamos a get_bocas_consulta_estados
+        try:
+            if self.idafiliado.isdigit():
+                bocas_rows = get_bocas_consulta_estados(int(self.idafiliado), self.fecha)
+            else:
+                bocas_rows = []
+        except Exception as e:
+            print("[WARN] No se pudo obtener bocas:", e)
+            bocas_rows = []
+
+        # Layout superior
         formLayout = QFormLayout()
-
         row1 = QHBoxLayout()
         row1.addWidget(QLabel("Credencial:"))
         row1.addWidget(self.credencialEdit)
         row1.addSpacing(20)
-        row1.addWidget(QLabel("Afiliado:"))
-        row1.addWidget(self.afiliadoEdit)
-        row1.addSpacing(20)
         row1.addWidget(QLabel("Fecha:"))
         row1.addWidget(self.fechaEdit)
-        row1.addSpacing(20)
-        row1.addWidget(QLabel("Prestador:"))
-        row1.addWidget(self.prestadorEdit)
         formLayout.addRow(row1)
 
+        # Observaciones -> se actualiza cada vez que el usuario seleccione una fila
         row2 = QHBoxLayout()
         row2.addWidget(QLabel("Observaciones:"))
         row2.addWidget(self.observacionesEdit)
         formLayout.addRow(row2)
 
-        # 7) Panel de pestañas
+        # 6) Pestañas
         self.tabs = QTabWidget()
-        self.tabs.setTabPosition(QTabWidget.North)
+        self.tabs.setTabPosition(QTabWidget.West)
 
-        # Pestaña 1: Prestaciones Existentes
+        # Pestaña Bocas
+        self.tab_bocas = QWidget()
+        self.build_tab_bocas(self.tab_bocas, bocas_rows)
+        self.tabs.addTab(self.tab_bocas, "Bocas Disponibles")
+
+        # Pestaña Prestaciones Existentes
         self.menu_existentes = MenuEstados(
             on_estado_selected=self.on_estado_clicked,
-            locked=self.locked_mode,
-            title="Lista de Estados"
+            locked=False,
+            title="Prestaciones Existentes"
         )
         self.tabs.addTab(self.menu_existentes, "Prestaciones Existentes")
 
-        # Pestaña 2: Prestaciones Requeridas
+        # Pestaña Prestaciones Requeridas
         self.menu_requeridas = MenuEstados(
             on_estado_selected=self.on_estado_clicked,
-            locked=self.locked_mode,
-            title="Lista de Estados",
+            locked=False,
+            title="Prestaciones Requeridas",
             estados_personalizados={
                 "Caries": "icon_cariesR.png",
                 "Extracción": "icon_extraccionR.png",
@@ -95,21 +106,18 @@ class MainWindow(QMainWindow):
         )
         self.tabs.addTab(self.menu_requeridas, "Prestaciones Requeridas")
 
-        # 8) Botón Descargar
+        # Botón Descargar
         self.descargarButton = QPushButton("Descargar")
         self.descargarButton.clicked.connect(self.on_descargar_clicked)
 
-        # Layout izquierdo
         leftLayout = QVBoxLayout()
         leftLayout.addWidget(self.tabs)
         leftLayout.addWidget(self.descargarButton)
         leftLayout.addStretch()
 
-        # Layout odontograma
         odontoLayout = QVBoxLayout()
         odontoLayout.addWidget(self.odontogram_view)
 
-        # Unión
         hLayout = QHBoxLayout()
         hLayout.addLayout(leftLayout, stretch=0)
         hLayout.addLayout(odontoLayout, stretch=1)
@@ -121,44 +129,134 @@ class MainWindow(QMainWindow):
         container = QWidget()
         container.setLayout(mainLayout)
         self.setCentralWidget(container)
+        self.resize(1300, 800)
 
-        self.setFixedSize(1300, 800)
-        self.apply_dental_args(data_dict.get("dientes", ""))
+        # Pintar la primer boca si existe
+        self.cargar_por_defecto(bocas_rows)
+
+    def build_tab_bocas(self, container, filas_bocas):
+        """
+        Muestra col0= idBoca (oculto), col1=fechaCarga, col2=efector, col3=observaciones,
+        col4 y 5 si quisieras efectorColegio y codFact, etc.
+        """
+        from PyQt5.QtWidgets import QVBoxLayout, QCheckBox, QTableWidget, QTableWidgetItem
+
+        layout = QVBoxLayout()
+
+        self.chkEfector = QCheckBox("Filtrar Efector Presupuesto")
+        self.chkEfector.setChecked(True)
+        self.chkEfector.stateChanged.connect(self.on_filtrar_efector)
+        layout.addWidget(self.chkEfector)
+
+        self.tableBocas = QTableWidget()
+        # 4 col => 0 => idBoca (oculto), 1 => fechaBoca, 2 => efector, 3 => resumen
+        self.tableBocas.setColumnCount(4)
+        self.tableBocas.setHorizontalHeaderLabels(["idBoca","Fecha Carga","Efector","Observaciones"])
+        self.tableBocas.cellClicked.connect(self.on_boca_seleccionada)
+        layout.addWidget(self.tableBocas)
+
+        container.setLayout(layout)
+
+        self.filas_bocas_original = filas_bocas
+        self.cargar_tabla_bocas(filas_bocas)
+
+        # Ocultamos col 0 => idBoca
+        self.tableBocas.setColumnHidden(0, True)
+
+    def cargar_tabla_bocas(self, filas):
+        """
+        Solo necesitamos idboca, fechacarga, efector, resumenclinico.
+        Filtramos efectorcolegio y efectorcodfact aparte (no se muestran)
+        """
+        print("[DEBUG] cargar_tabla_bocas =>", filas)
+        self.tableBocas.setRowCount(len(filas))
+        for row_idx, rd in enumerate(filas):
+            # Ajustar keys (idboca, fechacarga, efector, resumenclinico)
+            idboca  = str(rd.get("idboca",""))
+            fecha   = str(rd.get("fechacarga",""))
+            efector = str(rd.get("efector",""))
+            resumen = str(rd.get("resumenclinico",""))
+
+            # col0 => idBoca (oculto)
+            self.tableBocas.setItem(row_idx, 0, QTableWidgetItem(idboca))
+            # col1 => fecha
+            self.tableBocas.setItem(row_idx, 1, QTableWidgetItem(fecha))
+            # col2 => efector
+            self.tableBocas.setItem(row_idx, 2, QTableWidgetItem(efector))
+            # col3 => resumen
+            self.tableBocas.setItem(row_idx, 3, QTableWidgetItem(resumen))
+
+    def on_filtrar_efector(self, state):
+        """
+        Filtro: si 'efectorcolegio' y 'efectorcodfact' coinciden
+        """
+        if state == Qt.Checked:
+            c = self.efectorColegio
+            f = self.efectorCodFact
+            filas_filtradas = []
+            for row in self.filas_bocas_original:
+                # si row_data[efectorcolegio]== c y efectorcodfact==f => lo muestra
+                if (str(row.get("efectorcolegio","")) == c and
+                    str(row.get("efectorcodfact","")) == f):
+                    filas_filtradas.append(row)
+            self.cargar_tabla_bocas(filas_filtradas)
+        else:
+            # Sin filtrar
+            self.cargar_tabla_bocas(self.filas_bocas_original)
+
+    def on_boca_seleccionada(self, row, col):
+        """
+        Toma idBoca (col0 oculto), llama get_odontograma_data => pinta
+        y además setea self.observacionesEdit con el 'Observaciones' col3
+        """
+        idboca_str = self.tableBocas.item(row, 0).text().strip()
+        if not idboca_str.isdigit():
+            return
+        # col3 => Observaciones
+        obs_item = self.tableBocas.item(row, 3)
+        observaciones_val = obs_item.text() if obs_item else ""
+
+        self.observacionesEdit.setText(observaciones_val)
+
+        idboca = int(idboca_str)
+        data_odo = get_odontograma_data(idboca)
+        dientes_str = data_odo.get("dientes","")
+        self.odontogram_view.apply_batch_states(parse_dental_states(dientes_str))
+        print(f"[DEBUG] Seleccionaste idBoca={idboca}. Observaciones='{observaciones_val}'")
+
+    def cargar_por_defecto(self, filas_bocas):
+        if filas_bocas:
+            primer = filas_bocas[0]
+            primer_id = primer.get("idboca","")
+            primer_resumen = str(primer.get("resumenclinico",""))
+            self.observacionesEdit.setText(primer_resumen)
+
+            if primer_id:
+                data_odo = get_odontograma_data(primer_id)
+                dientes_str = data_odo.get("dientes","")
+                self.odontogram_view.apply_batch_states(parse_dental_states(dientes_str))
 
     def setup_stylesheet(self):
-        """
-        Aplica una hoja de estilo global para usar background.jpg como fondo
-        y dejar los labels transparentes, etc.
-        """
         bg_path = resource_path("src/background.jpg")
         if os.path.exists(bg_path):
             bg_path_ = bg_path.replace('\\', '/')
             self.setStyleSheet(f"""
-                /* Fondo global */
                 QMainWindow, QWidget {{
                     background-image: url("{bg_path_}");
                     background-repeat: no-repeat;
                     background-position: center;
                 }}
-
-                /* Hacemos que inputs y contenedores tengan fondo blanco translúcido */
                 QLineEdit, QPushButton, QToolButton, QTabWidget::pane, QComboBox,
-                QSpinBox, QDoubleSpinBox, QPlainTextEdit, QTextEdit {{
+                QSpinBox, QDoubleSpinBox, QPlainTextEdit, QTextEdit, QTableWidget {{
                     background-color: rgba(255,255,255, 0.8);
                 }}
-
-                /* QLabels sin fondo */
                 QLabel {{
                     background: transparent;
                 }}
-
-                /* QGraphicsView con fondo blanco */
                 QGraphicsView {{
                     background-color: rgba(255,255,255, 0.9);
                 }}
             """)
-        else:
-            print("[WARN] No se encontró src/background.jpg")
 
     def on_estado_clicked(self, estado_str):
         print(f"[INFO] Estado seleccionado: {estado_str}")
@@ -167,7 +265,7 @@ class MainWindow(QMainWindow):
     def on_descargar_clicked(self):
         from PyQt5.QtWidgets import QFileDialog
 
-        afil = self.afiliadoEdit.text().strip().replace(" ", "_")
+        afil = self.credencialEdit.text().strip().replace(" ", "_")
         fecha = self.fechaEdit.text().strip().replace(" ", "_")
         if not afil: afil = "SIN_AFILIADO"
         if not fecha: fecha = "SIN_FECHA"
@@ -183,8 +281,3 @@ class MainWindow(QMainWindow):
             print(f"[OK] Captura guardada: {full_path}")
         else:
             print("[ERROR] No se pudo guardar la imagen.")
-
-    def apply_dental_args(self, dientes_str):
-        if dientes_str:
-            parsed = parse_dental_states(dientes_str)
-            self.odontogram_view.apply_batch_states(parsed)

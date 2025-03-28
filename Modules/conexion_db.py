@@ -1,39 +1,98 @@
-# Modules/conexion_db.py
 import pyodbc
 
-def get_connection():
+def get_connection_prestaciones():
     drivers = [
         '{SQL Server Native Client 10.0}',
         '{SQL Server Native Client 11.0}',
         '{ODBC Driver 13 for SQL Server}',
         '{ODBC Driver 17 for SQL Server}'
     ]
-    server = 'Concentrador-desarrollo'
+    server = 'Concentrador'  # Ajusta
     database = 'Prestacion'
 
     for driver in drivers:
         try:
-            print(f"Probando conexión con {driver}...")
+            print(f"Probando conexión con {driver} para Prestaciones...")
             conn = pyodbc.connect(
                 f'DRIVER={driver};SERVER={server};DATABASE={database};Trusted_Connection=yes;'
             )
-            print("Conexión exitosa.")
+            print("[OK] Conexión Prestaciones exitosa.")
             return conn
         except pyodbc.Error as e:
             print(f"Error al conectar con {driver}: {e}")
 
-    raise Exception("No se pudo conectar a la base de datos con ningún driver.")
+    raise Exception("No se pudo conectar a la base Prestaciones")
 
 
-def get_odontograma_data(numero=None):
+def get_connection_desarrollo():
+    drivers = [
+        '{SQL Server Native Client 10.0}',
+        '{SQL Server Native Client 11.0}',
+        '{ODBC Driver 13 for SQL Server}',
+        '{ODBC Driver 17 for SQL Server}'
+    ]
+    server = 'concentrador-desarrollo'  # Ajusta
+    database = 'Prestacion'
+
+    for driver in drivers:
+        try:
+            print(f"Probando conexión con {driver} para Desarrollo...")
+            conn = pyodbc.connect(
+                f'DRIVER={driver};SERVER={server};DATABASE={database};Trusted_Connection=yes;'
+            )
+            print("[OK] Conexión Desarrollo exitosa.")
+            return conn
+        except pyodbc.Error as e:
+            print(f"Error al conectar con {driver}: {e}")
+
+    raise Exception("No se pudo conectar a la base Desarrollo")
+
+
+def get_bocas_consulta_estados(idafiliado, fecha):
     """
-    - Si numero is None => Diccionario vacío (sin datos).
-    - Si numero tiene valor => llama al SP y:
-      1) Imprime por consola el result set completo (columnas + filas).
-      2) Retorna la información de la primera fila en un diccionario.
+    Llama a [dbo].[odo_boca_consulta_estados] @idafiliado, @fecha
+    en la base Prestaciones (Concentrador).
+    Imprime columnas y filas en consola, y retorna la lista de dict.
     """
-    # Caso sin número => interfaz en blanco
-    if numero is None:
+    conn = get_connection_prestaciones()
+    cursor = conn.cursor()
+    try:
+        sp_name = "[dbo].[odo_boca_consulta_estados]"
+        print(f"\nEjecutando SP {sp_name} {idafiliado}, '{fecha}'...")
+        cursor.execute(f"EXEC {sp_name} ?, ?", (idafiliado, fecha))
+
+        rows = cursor.fetchall()
+        if not rows:
+            print("[INFO] No se obtuvieron filas.")
+            return []
+
+        # Imprimimos columnas y filas
+        col_names = [desc[0] for desc in cursor.description]
+        print("Columnas:", col_names)
+        for row in rows:
+            print(row)
+
+        # Convertimos cada fila en dict
+        col_lower = [c.lower() for c in col_names]
+        result = []
+        for r in rows:
+            row_dict = {}
+            for idx, c in enumerate(col_lower):
+                row_dict[c] = r[idx]
+            result.append(row_dict)
+
+        return result
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_odontograma_data(idboca=None):
+    """
+    Llama a SP [dbo].[odo_buscaParametrosEstadoBoca] @idBoca
+    en la base Desarrollo
+    """
+    if idboca is None:
         return {
             "credencial": "",
             "afiliado": "",
@@ -43,23 +102,13 @@ def get_odontograma_data(numero=None):
             "dientes": ""
         }
 
-    conn = get_connection()
+    conn = get_connection_desarrollo()
     cursor = conn.cursor()
     try:
-        # Ejecuta el SP
-        cursor.execute("EXEC odo_buscaParametrosEstadoBoca ?", (numero,))
-
-        try:
-            # Obtenemos todas las filas
-            rows = cursor.fetchall()
-        except pyodbc.ProgrammingError:
-            # El SP no devolvió SELECT
-            print("El SP no devolvió un SELECT. No hay result set.")
-            rows = []
-
-        # Si no hay filas, retornamos vacío
+        cursor.execute("EXEC [dbo].[odo_buscaParametrosEstadoBoca] ?", (idboca,))
+        rows = cursor.fetchall()
         if not rows:
-            print("No se encontraron filas. Interface vacía.")
+            print(f"No se encontraron filas para idBoca={idboca}")
             return {
                 "credencial": "",
                 "afiliado": "",
@@ -68,20 +117,7 @@ def get_odontograma_data(numero=None):
                 "observaciones": "",
                 "dientes": ""
             }
-
-        # Imprimir columnas y filas en consola
-        col_names = [desc[0] for desc in cursor.description]
-        print("\n--- Resultado del SP ---")
-        print("\t".join(col_names))
-        for row in rows:
-            print("\t".join(str(x) for x in row))
-        print("--- Fin del resultado ---\n")
-
-        # Tomamos solo la primera fila para armar el diccionario
         first_row = rows[0]
-
-        # Usamos índice o getattr(), según cómo quieras acceder
-        # Supongamos que las columnas se llaman [credencial, afiliado, prestador, fecha, observaciones, dientes]
         return {
             "credencial": str(first_row.credencial or ""),
             "afiliado": str(first_row.afiliado or ""),
@@ -90,7 +126,6 @@ def get_odontograma_data(numero=None):
             "observaciones": str(first_row.observaciones or ""),
             "dientes": str(first_row.dientes or "")
         }
-
     finally:
         cursor.close()
         conn.close()
