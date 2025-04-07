@@ -129,3 +129,6 @@ def get_odontograma_data(idboca=None):
     finally:
         cursor.close()
         conn.close()
+
+
+#python odontograma.py 354495 "01/03/2025" "ODONTOLOGO DE PRUEBA COCH" 333
