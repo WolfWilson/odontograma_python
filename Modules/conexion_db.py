@@ -1,146 +1,123 @@
-#Modules/conexion_db.py
+"""
+Conexión a SQL Server y wrappers para SP.
+Compatible con SQL Server 2014; usa autenticación de Windows.
+"""
 import pyodbc
 from datetime import datetime
 
-def get_connection_prestaciones():
+# ───────────────────────── util interno ──────────────────────
+def _get_connection(server: str, database: str):
     drivers = [
         '{SQL Server Native Client 10.0}',
         '{SQL Server Native Client 11.0}',
         '{ODBC Driver 13 for SQL Server}',
-        '{ODBC Driver 17 for SQL Server}'
+        '{ODBC Driver 17 for SQL Server}',
     ]
-    server = 'Concentrador'  # Ajusta
-    database = 'Prestacion'
-
-    for driver in drivers:
+    for drv in drivers:
         try:
-            print(f"Probando conexión con {driver} para Prestaciones...")
+            print(f"[INFO] Intentando con {drv} -> {server}\\{database}")
             conn = pyodbc.connect(
-                f'DRIVER={driver};SERVER={server};DATABASE={database};Trusted_Connection=yes;'
+                f"DRIVER={drv};SERVER={server};DATABASE={database};Trusted_Connection=yes;"
             )
-            print("[OK] Conexión Prestaciones exitosa.")
+            print("[OK] Conexión exitosa.")
             return conn
         except pyodbc.Error as e:
-            print(f"Error al conectar con {driver}: {e}")
+            print(f"[WARN] {drv} falló: {e}")
+    raise ConnectionError(f"No se pudo conectar a {server}\\{database}")
 
-    raise Exception("No se pudo conectar a la base Prestaciones")
+def get_connection_prestaciones():
+    return _get_connection('Concentrador', 'Prestacion')
 
 def get_connection_desarrollo():
-    drivers = [
-        '{SQL Server Native Client 10.0}',
-        '{SQL Server Native Client 11.0}',
-        '{ODBC Driver 13 for SQL Server}',
-        '{ODBC Driver 17 for SQL Server}'
-    ]
-    server = 'concentrador-desarrollo'  # Ajusta
-    database = 'Prestacion'
+    return _get_connection('concentrador-desarrollo', 'Prestacion')
 
-    for driver in drivers:
-        try:
-            print(f"Probando conexión con {driver} para Desarrollo...")
-            conn = pyodbc.connect(
-                f'DRIVER={driver};SERVER={server};DATABASE={database};Trusted_Connection=yes;'
-            )
-            print("[OK] Conexión Desarrollo exitosa.")
-            return conn
-        except pyodbc.Error as e:
-            print(f"Error al conectar con {driver}: {e}")
-
-    raise Exception("No se pudo conectar a la base Desarrollo")
-
-
-def get_bocas_consulta_estados(idafiliado, fecha):
+# ─────────────────── SP 1: bocas por prestador ───────────────
+def get_bocas_consulta_efector(idafiliado: str, colegio: int,
+                               codfact: int, fecha: str) -> list[dict]:
     """
-    Llama a [dbo].[odo_boca_consulta_estados] @idafiliado, @fecha (en base Prestaciones).
-    Formatea 'fechaCarga' en dd/mm/aaaa.
-    Devuelve lista de dict con llaves en minúsculas.
+    EXEC [dbo].[odo_boca_consulta_efector]
+         @idafiliado, @efectorColegio, @efectorCodFact, @fecha
+    Devuelve: idBoca, fechaCarga, efectorColegio, efectorCodFact,
+              efector, resumenClinico, …
     """
-    conn = get_connection_desarrollo()
+    conn   = get_connection_desarrollo()
     cursor = conn.cursor()
     try:
-        sp_name = "[dbo].[odo_boca_consulta_estados]"
-        print(f"\n[DEBUG] Ejecutando SP {sp_name} {idafiliado}, '{fecha}'...")
-        cursor.execute(f"EXEC {sp_name} ?, ?", (idafiliado, fecha))
-
+        sp = "[dbo].[odo_boca_consulta_efector]"
+        print(f"[DEBUG] {sp} {idafiliado}, {colegio}, {codfact}, '{fecha}'")
+        cursor.execute(f"EXEC {sp} ?, ?, ?, ?", (idafiliado, colegio, codfact, fecha))
         rows = cursor.fetchall()
         if not rows:
-            print("[INFO] No se obtuvieron filas.")
+            print("[INFO] Sin resultados.")
             return []
 
-        col_names = [desc[0] for desc in cursor.description]
-        print("[DEBUG] Columnas devueltas:", col_names)
-        for row in rows:
-            print("[DEBUG] Row:", row)
-
-        # Convertimos a dict
-        col_lower = [c.lower() for c in col_names]
-        result = []
+        cols = [desc[0].lower() for desc in cursor.description]
+        out  = []
         for r in rows:
-            row_dict = {}
-            for idx, c in enumerate(col_lower):
-                val = r[idx]
-                if c == 'fechacarga' and val and isinstance(val, datetime):
-                    row_dict[c] = val.strftime("%d/%m/%Y")
+            d = {}
+            for i, col in enumerate(cols):
+                val = r[i]
+                if col == 'fechacarga' and isinstance(val, datetime):
+                    d[col] = val.strftime("%d/%m/%Y")
                 else:
-                    row_dict[c] = val
-            result.append(row_dict)
-
-        return result
+                    d[col] = val
+            out.append(d)
+        print(f"[DEBUG] Filas obtenidas: {len(out)}")
+        return out
     finally:
         cursor.close()
         conn.close()
 
-
-def get_odontograma_data(idboca=None):
+# ─────────────────── SP 2: detalle de una boca ───────────────
+def get_odontograma_data(idboca: int | None = None) -> dict:
     """
-    Llama a [dbo].[odo_buscaParametrosEstadoBoca] @idBoca (en base Desarrollo).
-    Formatea 'fecha' en dd/mm/aaaa.
-    Imprime un debug y retorna dict con credencial, afiliado, prestador, fecha, observaciones, dientes.
+    EXEC [dbo].[odo_buscaParametrosEstadoBoca] @idBoca
+    Devuelve dict con: credencial, afiliado, prestador, fecha,
+                       observaciones, dientes.
     """
     if idboca is None:
         return {
-            "credencial": "",
-            "afiliado": "",
-            "prestador": "",
-            "fecha": "",
+            "credencial":    "",
+            "afiliado":      "",
+            "prestador":     "",
+            "fecha":         "",
             "observaciones": "",
-            "dientes": ""
+            "dientes":       "",
         }
 
-    print(f"[DEBUG] Llamando a: EXEC [dbo].[odo_buscaParametrosEstadoBoca] {idboca} en 'concentrador-desarrollo'...")
-    conn = get_connection_desarrollo()
+    print(f"[DEBUG] EXEC [dbo].[odo_buscaParametrosEstadoBoca] {idboca}")
+    conn   = get_connection_desarrollo()
     cursor = conn.cursor()
     try:
         cursor.execute("EXEC [dbo].[odo_buscaParametrosEstadoBoca] ?", (idboca,))
         rows = cursor.fetchall()
         if not rows:
-            print(f"[WARN] No se encontraron filas para idBoca={idboca}")
+            print(f"[WARN] idBoca {idboca} no encontrado.")
             return {
-                "credencial": "",
-                "afiliado": "",
-                "prestador": "",
-                "fecha": "",
+                "credencial":    "",
+                "afiliado":      "",
+                "prestador":     "",
+                "fecha":         "",
                 "observaciones": "",
-                "dientes": ""
+                "dientes":       "",
             }
-        first_row = rows[0]
-        # Ajustamos la fecha a dd/mm/aaaa si es datetime
-        dt = first_row.fecha
-        if dt and isinstance(dt, datetime):
-            fecha_str = dt.strftime("%d/%m/%Y")
-        else:
-            fecha_str = str(dt) if dt else ""
 
-        data = {
-            "credencial": str(first_row.credencial or ""),
-            "afiliado": str(first_row.afiliado or ""),
-            "prestador": str(first_row.prestador or ""),
-            "fecha": fecha_str,
-            "observaciones": str(first_row.observaciones or ""),
-            "dientes": str(first_row.dientes or "")
+        r0 = rows[0]
+        fecha_fmt = (
+            r0.fecha.strftime("%d/%m/%Y") if isinstance(r0.fecha, datetime) else str(r0.fecha)
+        )
+
+        return {
+            "credencial":    str(r0.credencial or ""),
+            "afiliado":      str(r0.afiliado   or ""),
+            "prestador":     str(r0.prestador  or ""),
+            "fecha":         fecha_fmt,
+            "observaciones": str(r0.observaciones or ""),
+            "dientes":       str(r0.dientes or ""),
         }
-        print("[DEBUG] SP devolvió:", data)
-        return data
     finally:
         cursor.close()
         conn.close()
+
+# ──────────── Alias de compatibilidad para vistas viejas ─────
+get_bocas_consulta_estados = get_bocas_consulta_efector

@@ -1,55 +1,54 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-import sys
-import argparse
+"""
+Ejemplo de uso:
+python odontograma.py 354495 "01/02/2025" "ODONTOLOGO DE PRUEBA COCH" 3 333
+"""
+import sys, argparse
+from typing import Any
 from PyQt5.QtWidgets import QApplication
 
-from typing import Any  # solo para tipado
-
 try:
-    from PyQt5.QtWidgets import QFileDialog
-    from Modules.style import apply_style
+    from Modules.style import apply_style              # opcional
 except ImportError:
-    def apply_style(app: Any) -> None:  # mismo nombre de parámetro
-        pass
+    def apply_style(app: Any) -> None: pass            # stub
 
-from Modules.conexion_db import get_odontograma_data, get_bocas_consulta_estados
-from Modules.views import MainWindow
+from Modules.conexion_db import get_bocas_consulta_efector
 
-def main():
-    parser = argparse.ArgumentParser()
-    # Cuatro argumentos posicionales: credencial, fecha, efectorColegio, efectorCodFact
-    parser.add_argument("credencial", type=str, help="idafiliado, p.ej. 354495")
-    parser.add_argument("fecha", type=str, help='Fecha p.ej. "22/05/2024"')
-    parser.add_argument("efectorColegio", type=str, help='Nombre o cole del Efector')
-    parser.add_argument("efectorCodFact", type=str, help='Código Facturador p.ej. 333')
-    
-    args = parser.parse_args()
-    
-    # Llamamos al primer procedimiento, por ejemplo:
-    # get_bocas_consulta_estados(args.credencial, args.fecha)
-    # (Ajusta según tu SP, parseos, etc.)
-    # Podrías guardarlo en "filas_iniciales" o algo así.
-    # Por ejemplo:
-    # filas_iniciales = get_bocas_consulta_estados(args.credencial, args.fecha)
-
-    # Armamos data_dict para pasarlo a la vista
-    data_dict = {
-        "credencial": args.credencial,
-        "fecha": args.fecha,
-        "efectorColegio": args.efectorColegio,
-        "efectorCodFact": args.efectorCodFact,
-        # "filas_bocas": filas_iniciales  # si querés pasarlo
+def build_data_dict(args, bocas_rows):
+    return {
+        "credencial":      args.credencial,
+        "fecha":           args.fecha,
+        "efectorNombre":   args.efectorNombre,
+        "colegio":         args.colegio,
+        "efectorCodFact":  args.efectorCodFact,
+        "filas_bocas":     bocas_rows,
     }
+
+def main() -> None:
+    p = argparse.ArgumentParser("Visualizador Odontograma")
+    p.add_argument("credencial",      type=str)
+    p.add_argument("fecha",           type=str)            # dd/mm/aaaa
+    p.add_argument("efectorNombre",   type=str)            # solo para mostrar
+    p.add_argument("colegio",         type=int)
+    p.add_argument("efectorCodFact",  type=int)
+    args = p.parse_args()
+
+    # ── SP de cabecera (4 parámetros) ────────────────────────
+    bocas_rows = get_bocas_consulta_efector(
+        idafiliado = args.credencial,
+        colegio    = args.colegio,
+        codfact    = args.efectorCodFact,
+        fecha      = args.fecha,
+    )
+
+    data_dict = build_data_dict(args, bocas_rows)
 
     app = QApplication(sys.argv)
     apply_style(app)
-
-    w = MainWindow(data_dict)
-    w.show()
+    from Modules.views import MainWindow
+    MainWindow(data_dict).show()
     sys.exit(app.exec_())
-
 
 if __name__ == "__main__":
     main()
