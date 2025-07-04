@@ -5,11 +5,13 @@ import sys
 import argparse
 from PyQt5.QtWidgets import QApplication
 
+from typing import Any  # solo para tipado
+
 try:
     from PyQt5.QtWidgets import QFileDialog
     from Modules.style import apply_style
 except ImportError:
-    def apply_style(x):
+    def apply_style(app: Any) -> None:  # mismo nombre de parámetro
         pass
 
 from Modules.conexion_db import get_odontograma_data, get_bocas_consulta_estados
