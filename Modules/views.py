@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# coding: utf-8
+# coding: utf-8 Anto
 """
 Ventana principal del Odontograma.
 • Muestra la lista de bocas devueltas por:   get_bocas_consulta_efector()
