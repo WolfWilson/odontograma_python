@@ -40,7 +40,7 @@ def get_bocas_consulta_efector(idafiliado: str, colegio: int,
     Devuelve: idBoca, fechaCarga, efectorColegio, efectorCodFact,
               efector, resumenClinico, …
     """
-    conn   = get_connection_desarrollo()
+    conn   = get_connection_prestaciones()
     cursor = conn.cursor()
     try:
         sp = "[dbo].[odo_boca_consulta_efector]"
@@ -86,7 +86,7 @@ def get_odontograma_data(idboca: int | None = None) -> dict:
         }
 
     print(f"[DEBUG] EXEC [dbo].[odo_buscaParametrosEstadoBoca] {idboca}")
-    conn   = get_connection_desarrollo()
+    conn   = get_connection_prestaciones()
     cursor = conn.cursor()
     try:
         cursor.execute("EXEC [dbo].[odo_buscaParametrosEstadoBoca] ?", (idboca,))
