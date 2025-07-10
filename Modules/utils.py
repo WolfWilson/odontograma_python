@@ -19,7 +19,10 @@ ESTADOS = {
     "Prótesis Removible INFERIOR": 10,
     "Prótesis Completa SUPERIOR": 11,
     "Prótesis Completa INFERIOR": 12,
-    "Supernumerario": 13
+    "Supernumerario": 13,
+    "Extracción" : 14,  # nuevo
+    "Caries": 15       # nuevo
+    
 }
 
 # Mapeo inverso para ir de número a string
