@@ -2,13 +2,12 @@
 # coding: utf-8
 """
 Odontograma sin imágenes – versión optimizada.
-Ahora importa constantes “pesadas” desde utils.py para reducir tamaño.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple, cast
 
 from PyQt5.QtCore import QPointF, Qt
 from PyQt5.QtGui import QBrush, QFont, QPen, QPolygonF
@@ -21,6 +20,7 @@ from PyQt5.QtWidgets import (
     QGraphicsView,
 )
 
+# Configuración y mapeos
 from Modules.utils import (
     ESTADOS_POR_NUM,
     PROTESIS_SHORT,
@@ -31,25 +31,13 @@ from Modules.utils import (
     FACE_MAP,
 )
 
-# ─────────────────────────────────────────────────────────────
-# Paleta de colores y pinceles locales
-# (podrías moverlos a style.py más adelante si quieres)
-# ─────────────────────────────────────────────────────────────
-BLUE = getattr(Qt, "blue", Qt.GlobalColor.blue)
-YELLOW = getattr(Qt, "yellow", Qt.GlobalColor.yellow)
-WHITE = getattr(Qt, "white", Qt.GlobalColor.white)
-RED = getattr(Qt, "red", Qt.GlobalColor.red)
-DARK_GRAY = getattr(Qt, "darkGray", Qt.GlobalColor.darkGray)
-DARK_YELLOW = getattr(Qt, "darkYellow", Qt.GlobalColor.darkYellow)
-
-BLUE_PEN = QPen(BLUE, 3)
-YELLOW_PEN = QPen(YELLOW, 2)
-DOT_BLUE_PEN = QPen(BLUE, 2, Qt.DotLine)
-BRIDGE_PEN = QPen(BLUE, 4)
-WHITE_BRUSH = QBrush(WHITE)
-BLUE_BRUSH = QBrush(BLUE)
-YELLOW_BRUSH = QBrush(YELLOW)
-TRANSPARENT_BRUSH = QBrush(Qt.transparent)
+# Paleta gráfica
+from Modules.style_models import (
+    BLUE, YELLOW, WHITE, BLACK,
+    RED, DARK_GRAY, DARK_YELLOW,
+    BLUE_PEN, YELLOW_PEN, DOT_BLUE_PEN, BRIDGE_PEN,
+    WHITE_BRUSH, BLUE_BRUSH, YELLOW_BRUSH, TRANSPARENT_BRUSH,
+)
 
 # ─────────────────────────────────────────────────────────────
 # Cara individual
@@ -61,10 +49,9 @@ class ToothFacePolygon(QGraphicsPolygonItem):
         super().__init__(QPolygonF([QPointF(x, y) for x, y in pts]))
         self.tooth = parent
         self.setBrush(WHITE_BRUSH)
-        self.setPen(QPen(Qt.black, 2))
+        self.setPen(QPen(BLACK, 2))
         self._selected = False
 
-    # clic → aplica estado actual
     def mousePressEvent(self, event):  # type: ignore[override]
         view = self.tooth.odontogram_view
         if view.locked:
@@ -88,14 +75,6 @@ class ToothFacePolygon(QGraphicsPolygonItem):
 # Pieza dental completa
 # ─────────────────────────────────────────────────────────────
 class ToothItem:
-    corona: QGraphicsEllipseItem
-    implante: QGraphicsTextItem
-    sellador: QGraphicsEllipseItem
-    ausente_fisio: QGraphicsEllipseItem
-    protesis: QGraphicsTextItem
-    super_num_circ: QGraphicsEllipseItem
-    super_num_text: QGraphicsTextItem
-
     def __init__(
         self,
         x: int,
@@ -105,7 +84,7 @@ class ToothItem:
         view: "OdontogramView",
         num: str,
     ) -> None:
-        self.scene = scene
+        self._scene = scene
         self.odontogram_view = view
         self.size = size
         self.num = num
@@ -128,51 +107,60 @@ class ToothItem:
             name: ToothFacePolygon(poly, self) for name, poly in pts.items()
         }
         for face in self.faces.values():
-            self.scene.addItem(face)
+            self._scene.addItem(face)
 
     # ----------------------- overlays ----------------------
     def _create_overlays(self, x: int, y: int, s: int) -> None:
-        self.cross_lines: List[QGraphicsLineItem] = [
-            self.scene.addLine(x, y, x + s, y + s, BLUE_PEN),
-            self.scene.addLine(x + s, y, x, y + s, BLUE_PEN),
-        ]
+        ln1 = cast(QGraphicsLineItem, self._scene.addLine(x, y, x + s, y + s, BLUE_PEN))
+        ln2 = cast(QGraphicsLineItem, self._scene.addLine(x + s, y, x, y + s, BLUE_PEN))
+        self.cross_lines: List[QGraphicsLineItem] = [ln1, ln2]
         for ln in self.cross_lines:
             ln.setVisible(False)
 
         r = s * 1.1
-        self.corona = self.scene.addEllipse(
-            x + s / 2 - r / 2, y + s / 2 - r / 2, r, r, BLUE_PEN, TRANSPARENT_BRUSH
+        self.corona = cast(
+            QGraphicsEllipseItem,
+            self._scene.addEllipse(
+                x + s / 2 - r / 2, y + s / 2 - r / 2, r, r, BLUE_PEN, TRANSPARENT_BRUSH
+            ),
         )
         self.corona.setVisible(False)
 
-        self.implante = self.scene.addText("IMP", QFont("Arial", 10, QFont.Bold))
-        self.implante.setDefaultTextColor(BLUE)
+        self.implante = cast(QGraphicsTextItem, self._scene.addText("IMP", QFont("Arial", 10, QFont.Bold)))
+        self.implante.setDefaultTextColor(BLACK)
         self.implante.setPos(x + 5, y + 5)
         self.implante.setVisible(False)
 
         sr = s * 0.2
-        self.sellador = self.scene.addEllipse(
-            x + s / 2 - sr / 2, y + s / 2 - sr / 2, sr, sr, YELLOW_PEN, YELLOW_BRUSH
+        self.sellador = cast(
+            QGraphicsEllipseItem,
+            self._scene.addEllipse(
+                x + s / 2 - sr / 2, y + s / 2 - sr / 2, sr, sr, YELLOW_PEN, YELLOW_BRUSH
+            ),
         )
         self.sellador.setVisible(False)
 
-        self.ausente_fisio = self.scene.addEllipse(
-            x + s / 2 - s / 2, y + s / 2 - s / 2, s, s, DOT_BLUE_PEN, TRANSPARENT_BRUSH
+        self.ausente_fisio = cast(
+            QGraphicsEllipseItem,
+            self._scene.addEllipse(
+                x + s / 2 - s / 2, y + s / 2 - s / 2, s, s, DOT_BLUE_PEN, TRANSPARENT_BRUSH
+            ),
         )
         self.ausente_fisio.setVisible(False)
 
-        self.protesis = self.scene.addText("", QFont("Arial", 12, QFont.Bold))
+        self.protesis = cast(QGraphicsTextItem, self._scene.addText("", QFont("Arial", 12, QFont.Bold)))
         self.protesis.setDefaultTextColor(RED)
         self.protesis.setVisible(False)
 
         sup_r = s * 0.4
         cx, cy = x + s / 2 - sup_r / 2, y + s / 2 - sup_r / 2
-        self.super_num_circ = self.scene.addEllipse(
-            cx, cy, sup_r, sup_r, BLUE_PEN, TRANSPARENT_BRUSH
+        self.super_num_circ = cast(
+            QGraphicsEllipseItem,
+            self._scene.addEllipse(cx, cy, sup_r, sup_r, BLUE_PEN, TRANSPARENT_BRUSH),
         )
         self.super_num_circ.setVisible(False)
-        self.super_num_text = self.scene.addText("S", QFont("Arial", 12, QFont.Bold))
-        self.super_num_text.setDefaultTextColor(BLUE)
+        self.super_num_text = cast(QGraphicsTextItem, self._scene.addText("S", QFont("Arial", 12, QFont.Bold)))
+        self.super_num_text.setDefaultTextColor(BLACK)
         self.super_num_text.setPos(
             cx + sup_r / 2 - self.super_num_text.boundingRect().width() / 2,
             cy + sup_r / 2 - self.super_num_text.boundingRect().height() / 2,
@@ -234,7 +222,7 @@ class ToothItem:
         brush = QBrush(color)
         for face in self.faces.values():
             face.setBrush(brush)
-            face.setPen(QPen(Qt.black, 2))
+            face.setPen(QPen(BLACK, 2))
             face._selected = False
 
     def _set_lines(self, visible: bool) -> None:
@@ -246,7 +234,8 @@ class ToothItem:
         top_rect = self.faces["top"].mapToScene(
             self.faces["top"].boundingRect()
         ).boundingRect()
-        tw, th = self.protesis.boundingRect().width(), self.protesis.boundingRect().height()
+        tw = self.protesis.boundingRect().width()
+        th = self.protesis.boundingRect().height()
         self.protesis.setPos(top_rect.center().x() - tw / 2, top_rect.top() - 5 - th)
         self.protesis.setVisible(True)
 
@@ -258,14 +247,15 @@ class ToothItem:
         self.has_bridge = True
         self.odontogram_view.update_bridges()
 
+
 # ─────────────────────────────────────────────────────────────
-# Vista completa
+# Vista completa del odontograma
 # ─────────────────────────────────────────────────────────────
 class OdontogramView(QGraphicsView):
     def __init__(self, locked: bool = False) -> None:
         super().__init__()
-        self.scene = QGraphicsScene(self)
-        self.setScene(self.scene)
+        self._scene = QGraphicsScene(self)
+        self.setScene(self._scene)
         self.locked = locked
         self.current_state: str = "Ninguno"
         self.bridge_lines: List[QGraphicsLineItem] = []
@@ -274,7 +264,6 @@ class OdontogramView(QGraphicsView):
 
     # ------------------------------------------------------
     def _create_teeth(self) -> None:
-        # anchuras de referencia
         size, margin = TOOTH_SIZE, TOOTH_MARGIN
         width_row1 = len(TEETH_ROWS[0]) * (size + margin) - margin
         width_row2 = len(TEETH_ROWS[1]) * (size + margin) - margin
@@ -288,19 +277,24 @@ class OdontogramView(QGraphicsView):
             t_row: List[ToothItem] = []
             for i, num in enumerate(row):
                 x = x_start + i * (size + margin)
-                t = ToothItem(x, y, size, self.scene, self, num)
+                t = ToothItem(x, y, size, self._scene, self, num)
                 t_row.append(t)
-                txt: QGraphicsTextItem = self.scene.addText(num, QFont("Arial", 10))
-                txt.setDefaultTextColor(Qt.black)
-                txt.setPos(x + size / 2 - txt.boundingRect().width() / 2, y + size + 3)
+                txt = cast(QGraphicsTextItem, self._scene.addText(num, QFont("Arial", 10)))
+                txt.setDefaultTextColor(BLACK)
+                txt.setPos(
+                    x + size / 2 - txt.boundingRect().width() / 2,
+                    y + size + 3
+                )
             self.dientes.append(t_row)
 
+    # ------------------------------------------------------
     def set_current_state(self, name: str) -> None:
         self.current_state = name
 
+    # ------------------------------------------------------
     def update_bridges(self) -> None:
         for ln in self.bridge_lines:
-            self.scene.removeItem(ln)
+            self._scene.removeItem(ln)
         self.bridge_lines.clear()
 
         for row in self.dientes:
@@ -311,12 +305,14 @@ class OdontogramView(QGraphicsView):
                     ).boundingRect()
                     y_line = rect.center().y() + tooth.size / 2 - 10
                     x_left, x_right = rect.left() - 5, rect.right() + 5
-                    ln: QGraphicsLineItem = self.scene.addLine(
-                        x_left, y_line, x_right, y_line, BRIDGE_PEN
+                    ln = cast(
+                        QGraphicsLineItem,
+                        self._scene.addLine(x_left, y_line, x_right, y_line, BRIDGE_PEN),
                     )
                     ln.setZValue(0)
                     self.bridge_lines.append(ln)
 
+    # ------------------------------------------------------
     def apply_batch_states(self, states: List[Tuple[int, int, str]]) -> None:
         per_tooth: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
         for st, dnum, faces in states:
@@ -325,7 +321,7 @@ class OdontogramView(QGraphicsView):
                 print(f"[WARN] Estado {st} no definido")
                 continue
             tooth = self.find_tooth(str(dnum))
-            if not tooth:
+            if tooth is None:
                 print(f"[WARN] Pieza {dnum} no encontrada")
                 continue
             per_tooth[str(dnum)].append((name, faces))
@@ -336,6 +332,7 @@ class OdontogramView(QGraphicsView):
 
         for num, lst in per_tooth.items():
             t = self.find_tooth(num)
+            assert t is not None   # para Pylance
             for name, faces in lst:
                 if name == "Obturacion" and faces:
                     t.apply_obturation_faces(faces)
@@ -343,6 +340,7 @@ class OdontogramView(QGraphicsView):
                     t.apply_state(name)
         self.update_bridges()
 
+    # ------------------------------------------------------
     def find_tooth(self, num: str) -> ToothItem | None:
         for row in self.dientes:
             for t in row:
