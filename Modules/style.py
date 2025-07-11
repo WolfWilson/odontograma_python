@@ -86,6 +86,9 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
         }}
         /* Iconos grandes sólo en QToolButton */
         QToolButton {{ icon-size: 64px 64px; }}
+        
+        
+        
 
         /* === Vistas y tablas translúcidas === */
         QGraphicsView,
@@ -103,37 +106,79 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
             background-color: rgba(255, 255, 255, 0.8);
         }}
 
-        /* Define la barra de pestañas cuando está a la izquierda */
+        /* ════════════════════════════════════════════════════════════════
+   PESTAÑAS VERTICALES (QTabWidget + QTabBar) – PyQt5 compatibles
+   ════════════════════════════════════════════════════════════════ */
+
+        /* Pane lateral (la zona gris clara que envuelve las pestañas) */
+        QTabWidget::pane:west {{
+        border-left: 2px solid #bbb;
+        background-color: rgba(255,255,255,0.8);
+        }}
+
+        /* Barra de pestañas (contenedor) */
         QTabBar:west {{
-            border: none;
-            background-color: rgba(255, 255, 255, 0.8);
+        background: transparent;   /* evita tapar colores de las tabs */
+        border: none;
         }}
 
-        /* Estilo para cada pestaña individual */
+        /* ─────────  Pestaña NO seleccionada  ───────── */
         QTabBar::tab:west {{
-            background: #e0e0e0;
-            border: 1px solid #bbb;
-            border-top-left-radius: 6px;
-            border-bottom-left-radius: 6px;
-            padding: 5px 8px;
-            margin-bottom: 3px;
-            font-weight: bold;
-            font-size: 9pt;
-            min-height: 160px;
+        background-color: #e0e0e0;
+        color: black;
+        border: 1px solid #7aa4d8;
+        border-top-left-radius: 6px;
+        border-bottom-left-radius: 6px;
+        padding: 6px 4px;          /* vertical | horizontal */
+        /*  Ajuste de tamaño:  grosor = min-width  |  largo = min-height  */
+        min-width: 36px;           /* grosor (más angosto)   */
+        min-height: 120px;         /* largo vertical        */
+        font-size: 9pt;
+        font-weight: normal;
         }}
 
-        /* Pestaña NO seleccionada cuando el mouse pasa por encima */
+        /* ─────────  Hover (solo si NO está seleccionada)  ───────── */
         QTabBar::tab:west:!selected:hover {{
-            background: #d3d3d3; /* Un gris un poco más oscuro para que se note */
-            border-color: #999;
+        background-color: #c9dbff;
+        border: 1px solid #5c8fd6;
+        color: black;
         }}
 
-        /* Pestaña seleccionada */
+        /* ─────────  Pestaña seleccionada  ───────── */
         QTabBar::tab:west:selected {{
-            background: rgba(255, 255, 255, 0.8);
-            border-right-color: transparent;
+        background-color: #3399FF;   /* azul visible */
+        color: white;
+        border: 2px solid #0067c2;
+        font-weight: bold;
         }}
 
+        /*  ALTERNATIVA EXTRA:
+        Si en algunos temas no toma “:west:selected”, Qt acepta la
+        forma genérica sin el “west”. La dejamos por compatibilidad.  */
+        QTabBar::tab:selected {{
+        background-color: #3399FF;
+        color: white;
+        border: 2px solid #0067c2;
+        }}
+
+        
+        QPushButton#btnDescargar {{
+        background-color: #4CAF50;         /* Verde moderno */
+        color: black;                      /* Texto blanco */
+        font-weight: ;
+        border: 1px solid #ffffff;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 11pt;
+        min-width: 100px;
+        }}
+        QPushButton#btnDescargar:hover {{
+        background-color: #ffffff;
+        }}
+        QPushButton#btnDescargar:pressed {{
+         background-color: #ffffff;
+        }}
+        
         /* === Encabezado personalizado === */
         QFrame#headerFrame {{
             background-color: #7CC8FF;
@@ -143,7 +188,7 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
         }}
         QFrame#headerFrame QLabel {{
             color: white;
-            font-size: 14px;      /* texto más grande */
+            font-size: 12px;      /* texto más grande */
             background: transparent;  /* ← elimina cualquier rectángulo de fondo */     
         }}
     """)

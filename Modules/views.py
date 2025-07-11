@@ -86,7 +86,8 @@ class MainWindow(QMainWindow):
         self.tabs = self._build_tabs(bocas_rows)
 
         # --- Botón Descargar ------------------------------------------------
-        self.descargarButton = QPushButton("Descargar")
+        self.descargarButton = QPushButton("DESCARGAR")
+        self.descargarButton.setObjectName("btnDescargar")
         self.descargarButton.clicked.connect(self.on_descargar_clicked)
 
         # --- Layout general -------------------------------------------------
