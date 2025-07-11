@@ -1,10 +1,15 @@
-#Modules/utils.py
 # coding: utf-8
+"""
+Utilidades y constantes globales del proyecto Dental.
+"""
 
-import sys
 import os
+import sys
+from typing import List
 
-# Diccionario de ESTADOS
+# ─────────────────────────────────────────────────────────────
+# Estados y mapeos
+# ─────────────────────────────────────────────────────────────
 ESTADOS = {
     "Ninguno": 0,
     "Obturacion": 1,
@@ -20,75 +25,106 @@ ESTADOS = {
     "Prótesis Completa SUPERIOR": 11,
     "Prótesis Completa INFERIOR": 12,
     "Supernumerario": 13,
-    "Extracción" : 14,  # nuevo
-    "Caries": 15       # nuevo
-    
+    "Extracción": 14,
+    "Caries": 15,
 }
 
-# Mapeo inverso para ir de número a string
 ESTADOS_POR_NUM = {v: k for k, v in ESTADOS.items()}
 
+# ─────────────────────────────────────────────────────────────
+# Abreviaturas para texto de prótesis
+# ─────────────────────────────────────────────────────────────
+PROTESIS_SHORT = {
+    "Prótesis Removible SUPERIOR": "PRS",
+    "Prótesis Removible INFERIOR": "PRI",
+    "Prótesis Completa SUPERIOR": "PCS",
+    "Prótesis Completa INFERIOR": "PCI",
+}
 
-def resource_path(relative_path):
-    """ Obtiene el path correcto, ya sea en desarrollo o en el ejecutable compilado. """
-    if getattr(sys, 'frozen', False):
-        # Si el programa está empaquetado con PyInstaller
-        base_path = sys._MEIPASS
-    else:
-        # Si el programa está en ejecución normal
-        base_path = os.path.abspath(".")
+# ─────────────────────────────────────────────────────────────
+# Configuración geométrica del odontograma
+# ─────────────────────────────────────────────────────────────
+TOOTH_SIZE: int = 40        # píxeles del cuadrado base
+TOOTH_MARGIN: int = 10      # espacio entre piezas
+
+TEETH_ROWS: List[List[str]] = [
+    # Adultos superiores
+    ["18", "17", "16", "15", "14", "13", "12", "11",
+     "21", "22", "23", "24", "25", "26", "27", "28"],
+    # Niños superiores
+    ["55", "54", "53", "52", "51", "61", "62", "63", "64", "65"],
+    # Niños inferiores
+    ["85", "84", "83", "82", "81", "71", "72", "73", "74", "75"],
+    # Adultos inferiores
+    ["48", "47", "46", "45", "44", "43", "42", "41",
+     "31", "32", "33", "34", "35", "36", "37", "38"],
+]
+
+Y_POSITIONS: List[int] = [50, 200, 350, 500]  # coordenada Y fila a fila
+
+# ─────────────────────────────────────────────────────────────
+# Caras ↔ letra para obturación selectiva
+# ─────────────────────────────────────────────────────────────
+FACE_MAP = {
+    "M": "left",     # Mesial  → cara izquierda
+    "D": "right",    # Distal  → cara derecha
+    "V": "top",      # Vestibular / Bucal → superior
+    "B": "top",
+    "L": "bottom",   # Lingual / Palatino → inferior
+    "P": "bottom",
+    "I": "center",   # Incisal / Oclusal → centro
+    "O": "center",
+}
+
+# ─────────────────────────────────────────────────────────────
+# Funciones de utilidad
+# ─────────────────────────────────────────────────────────────
+def resource_path(relative_path: str) -> str:
+    """
+    Devuelve la ruta absoluta a un recurso, compatible con PyInstaller.
+    """
+    base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
     return os.path.join(base_path, relative_path)
 
 
-def parse_dental_states(dental_str):
+def parse_dental_states(dental_str: str):
     """
-    A partir de un string con formato p.ej. "111,212V,313D", devuelve
-    una lista de tuplas (estado_int, diente_int, caras_str).
+    Convierte un string '117OV,118OVG' en
+    [(estado_int, diente_int, caras_str), …]
     """
     if not dental_str:
         return []
     items = [x.strip() for x in dental_str.split(",") if x.strip()]
     parsed_list = []
     for item in items:
-        p = parse_item_with_backtracking(item)
+        p = _parse_item_with_backtracking(item)
         if p:
             parsed_list.append(p)
         else:
-            print(f"WARNING: No se pudo interpretar: {item}")
+            print(f"[WARN] No se pudo interpretar: {item}")
     return parsed_list
 
 
-def parse_item_with_backtracking(item_str):
+def _parse_item_with_backtracking(item_str: str):
     """
-    Intenta parsear un item que contiene estado (1 o 2 dígitos),
-    luego el número de diente (2 dígitos) y luego las caras (opcional).
+    Intenta resolver (estado)(diente)(caras). Estado puede ser 1-2 dígitos.
     """
-    # Intenta 2 dígitos de estado
+    # Prueba 2 dígitos para estado
     if len(item_str) >= 4:
         try:
-            st_candidate = item_str[:2]
-            st_int = int(st_candidate)
-            if 1 <= st_int <= 13:
-                d_candidate = item_str[2:4]
-                d_int = int(d_candidate)
-                if 11 <= d_int <= 85:
-                    faces = item_str[4:].upper()
-                    return (st_int, d_int, faces)
-        except:
+            st_int = int(item_str[:2])
+            d_int = int(item_str[2:4])
+            if st_int in ESTADOS_POR_NUM and 11 <= d_int <= 85:
+                return (st_int, d_int, item_str[4:].upper())
+        except ValueError:
             pass
-
-    # Intenta 1 dígito de estado
+    # Prueba 1 dígito para estado
     if len(item_str) >= 3:
         try:
-            st_candidate = item_str[0]
-            st_int = int(st_candidate)
-            if 1 <= st_int <= 13:
-                d_candidate = item_str[1:3]
-                d_int = int(d_candidate)
-                if 11 <= d_int <= 85:
-                    faces = item_str[3:].upper()
-                    return (st_int, d_int, faces)
-        except:
+            st_int = int(item_str[0])
+            d_int = int(item_str[1:3])
+            if st_int in ESTADOS_POR_NUM and 11 <= d_int <= 85:
+                return (st_int, d_int, item_str[3:].upper())
+        except ValueError:
             pass
-
     return None

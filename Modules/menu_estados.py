@@ -5,9 +5,19 @@ import os
 from PyQt5.QtWidgets import (
     QWidget, QGroupBox, QVBoxLayout, QToolButton
 )
+
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QSize
+# al inicio, después de importar Qt
+try:
+    # PyQt6
+    TOOL_BTN_TEXT_BESIDE_ICON = Qt.ToolButtonStyle.ToolButtonTextBesideIcon  # type: ignore[attr-defined]
+except AttributeError:
+    # PyQt5
+    TOOL_BTN_TEXT_BESIDE_ICON = Qt.ToolButtonTextBesideIcon # type: ignore[attr-defined]
+
 from Modules.utils import resource_path
+
 
 # Diccionario global: nombre del estado -> icono
 ESTADOS_ICONOS = {
@@ -52,7 +62,8 @@ class MenuEstados(QWidget):
         for estado_text, icon_file in self.estados_dict.items():
             btn = QToolButton()
             btn.setText(estado_text)
-            btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            
+            btn.setToolButtonStyle(TOOL_BTN_TEXT_BESIDE_ICON)
             btn.setIconSize(QSize(80, 80))
 
             icon_path = resource_path(os.path.join("src", icon_file))
