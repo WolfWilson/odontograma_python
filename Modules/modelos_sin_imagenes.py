@@ -1,431 +1,360 @@
-# Modules/modelos_sin_imagenes.py
+# Modules/modelos_sin_imagenes_optimized.py
+#!/usr/bin/env python
 # coding: utf-8
+"""
+Odontograma sin imágenes – versión optimizada.
+Se evita la duplicación de items en la escena y se simplifica la creación
+ de polígonos y overlays. Pensado para usarse tal cual en el proyecto
+( reemplaza al antiguo `modelos_sin_imagenes.py` ).
+"""
+from __future__ import annotations
 
-print("El módulo modelos_sin_imagenes.py se está ejecutando (sin cargar imágenes).")
+from collections import defaultdict
+from typing import Dict, List, Tuple
 
-import os
-from PyQt5.QtWidgets import (
-    QGraphicsPolygonItem, QGraphicsTextItem,
-    QGraphicsView, QGraphicsScene
-)
-from PyQt5.QtGui import (
-    QBrush, QPen, QFont, QPolygonF
-)
 from PyQt5.QtCore import Qt, QPointF
+from PyQt5.QtGui import QBrush, QFont, QPen, QPolygonF
+from PyQt5.QtWidgets import (
+    QGraphicsEllipseItem,
+    QGraphicsLineItem,
+    QGraphicsPolygonItem,
+    QGraphicsScene,
+    QGraphicsTextItem,
+    QGraphicsView,
+)
 
-from Modules.utils import resource_path, ESTADOS_POR_NUM
+from Modules.utils import ESTADOS_POR_NUM  # noqa: F401
 
 
-# --------------------------------------------------------------------
-# Clase ToothFacePolygon (cara del diente)
-# --------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────
+# Helpers y constantes
+# ──────────────────────────────────────────────────────────────
+BLUE_PEN = QPen(Qt.blue, 3)
+YELLOW_PEN = QPen(Qt.yellow, 2)
+DOT_BLUE_PEN = QPen(Qt.blue, 2, Qt.DotLine)
+BRIDGE_PEN = QPen(Qt.blue, 4)
+WHITE_BRUSH = QBrush(Qt.white)
+BLUE_BRUSH = QBrush(Qt.blue)
+YELLOW_BRUSH = QBrush(Qt.yellow)
+TRANSPARENT_BRUSH = QBrush(Qt.transparent)
+
+# Mapeo de etiquetas reducidas para prótesis
+PROTESIS_SHORT = {
+    "Prótesis Removible SUPERIOR": "PRS",
+    "Prótesis Removible INFERIOR": "PRI",
+    "Prótesis Completa SUPERIOR": "PCS",
+    "Prótesis Completa INFERIOR": "PCI",
+}
+
+
+# ──────────────────────────────────────────────────────────────
+# Cara individual del diente
+# ──────────────────────────────────────────────────────────────
 class ToothFacePolygon(QGraphicsPolygonItem):
-    def __init__(self, points, parent_tooth, face_name):
-        super().__init__()
-        poly = QPolygonF()
-        for (px, py) in points:
-            poly.append(QPointF(px, py))
-        self.setPolygon(poly)
-        self.tooth = parent_tooth
-        self.face_name = face_name
-        self.setBrush(QBrush(Qt.white))
+    def __init__(self, pts: List[Tuple[float, float]], parent: "ToothItem") -> None:
+        super().__init__(QPolygonF([QPointF(x, y) for x, y in pts]))
+        self.tooth = parent
+        self.setBrush(WHITE_BRUSH)
         self.setPen(QPen(Qt.black, 2))
-        self.is_selected = False
+        self._selected = False
 
-    def mousePressEvent(self, event):
-        if self.tooth.odontogram_view.locked:
+    # ------------------------------------------------------
+    def mousePressEvent(self, event):  # type: ignore[override]
+        view = self.tooth.odontogram_view
+        if view.locked:
             return
 
-        current_state = self.tooth.odontogram_view.current_state_name
-        if current_state == "Obturacion":
-            if not self.is_selected:
-                self.setBrush(QBrush(Qt.blue))
-                self.is_selected = True
-            else:
-                self.setBrush(QBrush(Qt.white))
-                self.is_selected = False
-
-        elif current_state == "Puente":
+        state = view.current_state
+        if state == "Obturacion":
+            self._toggle_obturation()
+        elif state == "Puente":
             self.tooth.has_bridge = not self.tooth.has_bridge
-            self.tooth.odontogram_view.update_bridges()
+            view.update_bridges()
         else:
-            self.tooth.apply_state(current_state)
-
+            self.tooth.apply_state(state)
         super().mousePressEvent(event)
 
+    # ------------------------------------------------------
+    def _toggle_obturation(self) -> None:
+        self._selected = not self._selected
+        self.setBrush(BLUE_BRUSH if self._selected else WHITE_BRUSH)
 
-# --------------------------------------------------------------------
-# Clase ToothItem (pieza dental completa)
-# --------------------------------------------------------------------
+
+# ──────────────────────────────────────────────────────────────
+# Pieza dental completa
+# ──────────────────────────────────────────────────────────────
 class ToothItem:
-    def __init__(self, x, y, size, scene, odontogram_view, tooth_num):
+    def __init__(
+        self,
+        x: int,
+        y: int,
+        size: int,
+        scene: QGraphicsScene,
+        view: "OdontogramView",
+        num: str,
+    ) -> None:
         self.scene = scene
-        self.odontogram_view = odontogram_view
+        self.odontogram_view = view
         self.size = size
-        self.tooth_num = tooth_num
-
-        # Polígonos
-        self.top = None
-        self.right = None
-        self.bottom = None
-        self.left = None
-        self.center = None
-
-        # Overlays
-        self.cross_lines = []
-        self.corona_circle = None
-        self.implante_text = None
-        self.sellador_circle = None
-        self.ausente_fisio_circle = None
-        self.protesis_text = None
-        self.supernumerario_circle = None
-        self.supernumerario_text = None
-
-        # Flag para puente
+        self.num = num
         self.has_bridge = False
 
-        # 1) (SIN cargar imágenes) => Comentado
-        # self.load_tooth_image(x, y, tooth_num)
+        self._create_faces(x, y, size)
+        self._create_overlays(x, y, size)
 
-        # 2) Polígonos (caras)
-        self.create_faces(x, y, size)
-        # 3) Overlays (texto y formas)
-        self.create_overlays(x, y, size)
+    # ------------------------- caras ----------------------
+    def _create_faces(self, x: int, y: int, s: int) -> None:
+        fs = s / 3
+        pts = {
+            "top":    [(x, y), (x + s, y), (x + s - fs, y + fs), (x + fs, y + fs)],
+            "right":  [(x + s, y), (x + s, y + s), (x + s - fs, y + s - fs), (x + s - fs, y + fs)],
+            "bottom": [(x + s, y + s), (x, y + s), (x + fs, y + s - fs), (x + s - fs, y + s - fs)],
+            "left":   [(x, y + s), (x, y), (x + fs, y + fs), (x + fs, y + s - fs)],
+            "center": [(x + fs, y + fs), (x + s - fs, y + fs), (x + s - fs, y + s - fs), (x + fs, y + s - fs)],
+        }
+        self.faces: Dict[str, ToothFacePolygon] = {
+            name: ToothFacePolygon(poly, self) for name, poly in pts.items()
+        }
+        for face in self.faces.values():
+            self.scene.addItem(face)
 
-    # Si quisieras, podrías poner aquí un método vacío:
-    def load_tooth_image(self, x, y, tooth_num_str):
-        """
-        Método intencionalmente vacío para no cargar imágenes.
-        """
-        pass
-
-    def create_faces(self, x, y, size):
-        fs = size / 3
-        tl = (x,       y)
-        tr = (x+size,  y)
-        br = (x+size,  y+size)
-        bl = (x,       y+size)
-        ctl= (x+fs,       y+fs)
-        ctr= (x+size-fs,  y+fs)
-        cbr= (x+size-fs,  y+size-fs)
-        cbl= (x+fs,       y+size-fs)
-
-        self.top    = ToothFacePolygon([tl, tr, ctr, ctl], self, "top")
-        self.right  = ToothFacePolygon([tr, br, cbr, ctr], self, "right")
-        self.bottom = ToothFacePolygon([br, bl, cbl, cbr], self, "bottom")
-        self.left   = ToothFacePolygon([bl, tl, ctl, cbl], self, "left")
-        self.center = ToothFacePolygon([ctl, ctr, cbr, cbl], self, "center")
-
-        for f in [self.top, self.right, self.bottom, self.left, self.center]:
-            self.scene.addItem(f)
-
-    def create_overlays(self, x, y, size):
-        pen_b = QPen(Qt.blue, 3)
-
-        # X para PD Ausente
-        line1 = self.scene.addLine(x, y, x+size, y+size, pen_b)
-        line2 = self.scene.addLine(x+size, y, x, y+size, pen_b)
-        line1.setVisible(False)
-        line2.setVisible(False)
-        self.cross_lines = [line1, line2]
+    # ----------------------- overlays ----------------------
+    def _create_overlays(self, x: int, y: int, s: int) -> None:
+        self.cross_lines: List[QGraphicsLineItem] = [
+            self.scene.addLine(x, y, x + s, y + s, BLUE_PEN),
+            self.scene.addLine(x + s, y, x, y + s, BLUE_PEN),
+        ]
+        for ln in self.cross_lines:
+            ln.setVisible(False)
 
         # Corona
-        r = size * 1.1
-        cx = x + size/2 - r/2
-        cy = y + size/2 - r/2
-        self.corona_circle = self.scene.addEllipse(cx, cy, r, r, pen_b, QBrush(Qt.transparent))
-        self.corona_circle.setVisible(False)
+        r = s * 1.1
+        self.corona = self.scene.addEllipse(
+            x + s / 2 - r / 2, y + s / 2 - r / 2, r, r, BLUE_PEN, TRANSPARENT_BRUSH
+        )
+        self.corona.setVisible(False)
 
-        # Implante texto
-        self.implante_text = QGraphicsTextItem("IMP")
-        self.implante_text.setFont(QFont("Arial", 10, QFont.Bold))
-        self.implante_text.setDefaultTextColor(Qt.blue)
-        self.implante_text.setPos(x+5, y+5)
-        self.implante_text.setVisible(False)
-        self.implante_text.setZValue(1)
+        # Implante
+        self.implante = self.scene.addText("IMP", QFont("Arial", 10, QFont.Bold))
+        self.implante.setDefaultTextColor(Qt.blue)
+        self.implante.setPos(x + 5, y + 5)
+        self.implante.setVisible(False)
 
         # Sellador
-        srad = size * 0.2
-        sx = x + size/2 - srad/2
-        sy = y + size/2 - srad/2
-        pen_y = QPen(Qt.yellow, 2)
-        brush_y = QBrush(Qt.yellow)
-        self.sellador_circle = self.scene.addEllipse(sx, sy, srad, srad, pen_y, brush_y)
-        self.sellador_circle.setVisible(False)
+        sr = s * 0.2
+        self.sellador = self.scene.addEllipse(
+            x + s / 2 - sr / 2, y + s / 2 - sr / 2, sr, sr, YELLOW_PEN, YELLOW_BRUSH
+        )
+        self.sellador.setVisible(False)
 
         # Ausente fisiológico
-        dotted = QPen(Qt.blue, 2, Qt.DotLine)
-        afr = size
-        ax = x + size/2 - afr/2
-        ay = y + size/2 - afr/2
-        self.ausente_fisio_circle = self.scene.addEllipse(ax, ay, afr, afr, dotted, QBrush(Qt.transparent))
-        self.ausente_fisio_circle.setVisible(False)
+        self.ausente_fisio = self.scene.addEllipse(
+            x + s / 2 - s / 2, y + s / 2 - s / 2, s, s, DOT_BLUE_PEN, TRANSPARENT_BRUSH
+        )
+        self.ausente_fisio.setVisible(False)
 
         # Prótesis
-        self.protesis_text = QGraphicsTextItem("")
-        self.protesis_text.setFont(QFont("Arial", 12, QFont.Bold))
-        self.protesis_text.setDefaultTextColor(Qt.red)
-        self.protesis_text.setVisible(False)
-        self.protesis_text.setZValue(1)
-        self.scene.addItem(self.protesis_text)
+        self.protesis = self.scene.addText("", QFont("Arial", 12, QFont.Bold))
+        self.protesis.setDefaultTextColor(Qt.red)
+        self.protesis.setVisible(False)
 
         # Supernumerario
-        sup_r = size * 0.4
-        sx2 = x + size/2 - sup_r/2
-        sy2 = y + size/2 - sup_r/2
-        pen_b2 = QPen(Qt.blue, 2)
-        self.supernumerario_circle = self.scene.addEllipse(sx2, sy2, sup_r, sup_r, pen_b2, QBrush(Qt.transparent))
-        self.supernumerario_circle.setVisible(False)
-
-        # Texto "S"
-        s_text = QGraphicsTextItem("S")
-        s_text.setFont(QFont("Arial", 12, QFont.Bold))
-        s_text.setDefaultTextColor(Qt.blue)
-        s_text.setPos(
-            sx2 + sup_r/2 - s_text.boundingRect().width()/2,
-            sy2 + sup_r/2 - s_text.boundingRect().height()/2
+        sup_r = s * 0.4
+        cx, cy = x + s / 2 - sup_r / 2, y + s / 2 - sup_r / 2
+        self.super_num_circ = self.scene.addEllipse(
+            cx, cy, sup_r, sup_r, BLUE_PEN, TRANSPARENT_BRUSH
         )
-        s_text.setVisible(False)
-        s_text.setZValue(1)
-        self.supernumerario_text = s_text
-        self.scene.addItem(s_text)
+        self.super_num_circ.setVisible(False)
+        self.super_num_text = self.scene.addText("S", QFont("Arial", 12, QFont.Bold))
+        self.super_num_text.setDefaultTextColor(Qt.blue)
+        self.super_num_text.setPos(
+            cx + sup_r / 2 - self.super_num_text.boundingRect().width() / 2,
+            cy + sup_r / 2 - self.super_num_text.boundingRect().height() / 2,
+        )
+        self.super_num_text.setVisible(False)
 
-        for ov in [line1, line2, self.corona_circle, self.implante_text,
-                   self.sellador_circle, self.ausente_fisio_circle,
-                   self.supernumerario_circle, s_text]:
-            self.scene.addItem(ov)
-
-    # -----------------------
-    # Métodos de estado (igual que antes)
-    # -----------------------
-    def apply_state(self, state_name):
-        if state_name == "Ninguno":
-            self.reset_tooth()
-        elif state_name == "Agenesia":
-            self.set_agenesia(True)
-        elif state_name == "PD Ausente":
-            self.set_pd_ausente(True)
-        elif state_name == "Corona":
-            self.set_corona(True)
-        elif state_name == "Implante":
-            self.set_implante(True)
-        elif state_name == "Selladores":
-            self.set_sellador(True)
-        elif state_name == "Ausente Fisiológico":
-            self.set_ausente_fisio(True)
-        elif state_name in [
-            "Prótesis Removible SUPERIOR",
-            "Prótesis Removible INFERIOR",
-            "Prótesis Completa SUPERIOR",
-            "Prótesis Completa INFERIOR",
-        ]:
-            self.set_protesis_text(self._short_protesis_label(state_name))
-        elif state_name == "Supernumerario":
-            self.set_supernumerario(True)
-        elif state_name == "Obturacion":
-            for f in [self.top, self.right, self.bottom, self.left, self.center]:
-                f.setBrush(QBrush(Qt.blue))
-        elif state_name == "Puente":
-            self.has_bridge = True
-            self.odontogram_view.update_bridges()
-
-    def _short_protesis_label(self, full_label):
-        if full_label == "Prótesis Removible SUPERIOR": return "PRS"
-        if full_label == "Prótesis Removible INFERIOR": return "PRI"
-        if full_label == "Prótesis Completa SUPERIOR":  return "PCS"
-        if full_label == "Prótesis Completa INFERIOR":  return "PCI"
-        return ""
-
-    def apply_obturation_faces(self, faces_str):
-        face_map = {
-            "M": self.left, "D": self.right,
-            "V": self.top,  "B": self.top,
-            "L": self.bottom, "P": self.bottom,
-            "I": self.center, "O": self.center,
-            "G": None
+    # ------------------ métodos de estado -------------------
+    def apply_state(self, name: str) -> None:
+        handlers = {
+            "Ninguno":              self.reset,
+            "Agenesia":             lambda: self._shade_all(Qt.darkGray),
+            "PD Ausente":           lambda: self._set_lines(True),
+            "Corona":               lambda: self.corona.setVisible(True),
+            "Implante":             lambda: self.implante.setVisible(True),
+            "Selladores":           lambda: self.sellador.setVisible(True),
+            "Ausente Fisiológico":  lambda: self.ausente_fisio.setVisible(True),
+            "Supernumerario":       lambda: self._toggle_super(True),
+            "Puente":               self._flag_bridge,
+            "Extracción":           lambda: [self._set_lines(True)] + [f.setBrush(QBrush(Qt.red)) for f in self.faces.values()],
+            "Caries":               lambda: self.faces["center"].setBrush(QBrush(Qt.darkYellow))
         }
-        for c in faces_str.upper():
-            poly = face_map.get(c)
-            if poly:
-                poly.setBrush(QBrush(Qt.blue))
+        if name in handlers:
+            handlers[name]()
+        elif name in PROTESIS_SHORT:
+            self._set_protesis_text(PROTESIS_SHORT[name])
+        elif name == "Obturacion":
+            for face in self.faces.values():
+                face.setBrush(BLUE_BRUSH)
 
-    def set_agenesia(self, enabled):
-        col = Qt.darkGray if enabled else Qt.white
-        for f in [self.top, self.right, self.bottom, self.left, self.center]:
-            f.setBrush(QBrush(col))
+        elif name == "Extracción":
+            self.set_pd_ausente(True)
+            for f in [self.top, self.right, self.bottom, self.left, self.center]:
+                f.setBrush(QBrush(Qt.red))
 
-    def set_pd_ausente(self, enabled):
-        for line in self.cross_lines:
-            line.setVisible(enabled)
+        elif name == "Caries":
+            for f in [self.center]:
+                f.setBrush(QBrush(Qt.darkYellow))
 
-    def set_corona(self, enabled):
-        if self.corona_circle:
-            self.corona_circle.setVisible(enabled)
 
-    def set_implante(self, enabled):
-        if self.implante_text:
-            self.implante_text.setVisible(enabled)
+    # ------------------------------------------------------
+    def apply_obturation_faces(self, faces: str) -> None:
+        face_map = {
+            "M": "left", "D": "right", "V": "top", "B": "top",
+            "L": "bottom", "P": "bottom", "I": "center", "O": "center",
+        }
+        for c in faces.upper():
+            name = face_map.get(c)
+            if name:
+                self.faces[name].setBrush(BLUE_BRUSH)
 
-    def set_sellador(self, enabled):
-        if self.sellador_circle:
-            self.sellador_circle.setVisible(enabled)
-
-    def set_ausente_fisio(self, enabled):
-        if self.ausente_fisio_circle:
-            self.ausente_fisio_circle.setVisible(enabled)
-
-    def set_protesis_text(self, label):
-        self.protesis_text.setPlainText(label)
-        top_rect = self.top.mapToScene(self.top.boundingRect()).boundingRect()
-        tw = self.protesis_text.boundingRect().width()
-        th = self.protesis_text.boundingRect().height()
-        cx = top_rect.center().x() - tw/2
-        cy = top_rect.top() - 5 - th
-        self.protesis_text.setPos(cx, cy)
-        self.protesis_text.setVisible(True)
-
-    def set_supernumerario(self, enabled):
-        if enabled:
-            self.supernumerario_circle.setVisible(True)
-            self.supernumerario_text.setVisible(True)
-
-    def reset_tooth(self):
-        for f in [self.top, self.right, self.bottom, self.left, self.center]:
-            f.setBrush(QBrush(Qt.white))
-            f.setPen(QPen(Qt.black, 2))
-            f.is_selected = False
-        for line in self.cross_lines:
-            line.setVisible(False)
-        if self.corona_circle:
-            self.corona_circle.setVisible(False)
-        if self.implante_text:
-            self.implante_text.setVisible(False)
-        if self.sellador_circle:
-            self.sellador_circle.setVisible(False)
-        if self.ausente_fisio_circle:
-            self.ausente_fisio_circle.setVisible(False)
-        if self.protesis_text:
-            self.protesis_text.setVisible(False)
-        if self.supernumerario_circle:
-            self.supernumerario_circle.setVisible(False)
-        if self.supernumerario_text:
-            self.supernumerario_text.setVisible(False)
+    # ------------------- utilidades internas ---------------
+    def reset(self) -> None:
+        self._shade_all(Qt.white)
+        self._set_lines(False)
+        for item in (
+            self.corona, self.implante, self.sellador, self.ausente_fisio,
+            self.protesis, self.super_num_circ, self.super_num_text,
+        ):
+            item.setVisible(False)
         self.has_bridge = False
 
+    def _shade_all(self, color: Qt.GlobalColor) -> None:
+        brush = QBrush(color)
+        for face in self.faces.values():
+            face.setBrush(brush)
+            face.setPen(QPen(Qt.black, 2))
+            face._selected = False  # type: ignore[attr-defined]
 
-# --------------------------------------------------------------------
-# Clase OdontogramView (la grilla de dientes)
-# --------------------------------------------------------------------
+    def _set_lines(self, visible: bool) -> None:
+        for ln in self.cross_lines:
+            ln.setVisible(visible)
+
+    def _set_protesis_text(self, label: str) -> None:
+        self.protesis.setPlainText(label)
+        top_rect = self.faces["top"].mapToScene(self.faces["top"].boundingRect()).boundingRect()
+        tw, th = self.protesis.boundingRect().width(), self.protesis.boundingRect().height()
+        self.protesis.setPos(top_rect.center().x() - tw / 2, top_rect.top() - 5 - th)
+        self.protesis.setVisible(True)
+
+    def _toggle_super(self, enabled: bool) -> None:
+        self.super_num_circ.setVisible(enabled)
+        self.super_num_text.setVisible(enabled)
+
+    def _flag_bridge(self) -> None:
+        self.has_bridge = True
+        self.odontogram_view.update_bridges()
+
+
+# ──────────────────────────────────────────────────────────────
+# Vista completa del odontograma
+# ──────────────────────────────────────────────────────────────
 class OdontogramView(QGraphicsView):
-    def __init__(self, locked=False):
+    def __init__(self, locked: bool = False) -> None:
         super().__init__()
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
-        self.current_state_name = "Ninguno"
         self.locked = locked
+        self.current_state: str = "Ninguno"
+        self.bridge_lines: List = []
+        self.dientes: List[List[ToothItem]] = []
+        self._create_teeth()
 
-        self.bridge_lines = []
-        self.dientes = []
-        self.create_teeth()
-
-    def create_teeth(self):
-        size = 40
-        margin = 10
-
-        row1 = ["18","17","16","15","14","13","12","11","21","22","23","24","25","26","27","28"]
-        row2 = ["55","54","53","52","51","61","62","63","64","65"]
-        row3 = ["85","84","83","82","81","71","72","73","74","75"]
-        row4 = ["48","47","46","45","44","43","42","41","31","32","33","34","35","36","37","38"]
-
-        rows = [row1, row2, row3, row4]
+    # ------------------------------------------------------
+    def _create_teeth(self) -> None:
+        size, margin = 40, 10
+        rows = [
+            ["18","17","16","15","14","13","12","11","21","22","23","24","25","26","27","28"],
+            ["55","54","53","52","51","61","62","63","64","65"],
+            ["85","84","83","82","81","71","72","73","74","75"],
+            ["48","47","46","45","44","43","42","41","31","32","33","34","35","36","37","38"],
+        ]
         y_positions = [50, 200, 350, 500]
 
-        total_width_row1 = len(row1)*(size+margin) - margin
-        total_width_row2 = len(row2)*(size+margin) - margin
-        total_width_row3 = len(row3)*(size+margin) - margin
-
-        offset_x_row2 = (total_width_row1 - total_width_row2)//2
-        offset_x_row3 = (total_width_row1 - total_width_row3)//2
+        width_row1 = len(rows[0]) * (size + margin) - margin
+        width_row2 = len(rows[1]) * (size + margin) - margin
+        width_row3 = len(rows[2]) * (size + margin) - margin
+        offset2 = (width_row1 - width_row2) // 2
+        offset3 = (width_row1 - width_row3) // 2
 
         for idx, row in enumerate(rows):
             y = y_positions[idx]
-            if idx == 1:
-                x_start = 50 + offset_x_row2
-            elif idx == 2:
-                x_start = 50 + offset_x_row3
-            else:
-                x_start = 50
-
-            tooth_row = []
-            for i, tnum in enumerate(row):
-                x = x_start + i*(size+margin)
-                t = ToothItem(x, y, size, self.scene, self, tnum)
-                tooth_row.append(t)
-
-                # Etiqueta debajo del diente
-                txt = QGraphicsTextItem(tnum)
-                txt.setFont(QFont("Arial", 10))
+            x_start = 50 + (offset2 if idx == 1 else offset3 if idx == 2 else 0)
+            t_row: List[ToothItem] = []
+            for i, num in enumerate(row):
+                x = x_start + i * (size + margin)
+                t = ToothItem(x, y, size, self.scene, self, num)
+                t_row.append(t)
+                # número bajo la pieza
+                txt = self.scene.addText(num, QFont("Arial", 10))
                 txt.setDefaultTextColor(Qt.black)
-                txt.setPos(x + size/2 - txt.boundingRect().width()/2, y + size + 3)
-                self.scene.addItem(txt)
+                txt.setPos(x + size / 2 - txt.boundingRect().width() / 2, y + size + 3)
+            self.dientes.append(t_row)
 
-            self.dientes.append(tooth_row)
+    # ------------------------------------------------------
+    def set_current_state(self, name: str) -> None:
+        self.current_state = name
 
-    def set_current_state(self, state_name):
-        self.current_state_name = state_name
-
-    def update_bridges(self):
-        for line_item in self.bridge_lines:
-            self.scene.removeItem(line_item)
+    # ------------------------------------------------------
+    def update_bridges(self) -> None:
+        for ln in self.bridge_lines:
+            self.scene.removeItem(ln)
         self.bridge_lines.clear()
 
         for row in self.dientes:
-            bridging_teeth = [t for t in row if t.has_bridge]
-            if not bridging_teeth:
-                continue
-            for tooth in bridging_teeth:
-                rect = tooth.top.mapToScene(tooth.top.boundingRect()).boundingRect()
-                y_line = rect.center().y() + (tooth.size / 2) - 10
-                x_left = rect.left() - 5
-                x_right = rect.right() + 5
-                pen_bridge = QPen(Qt.blue, 4)
-                puente_line = self.scene.addLine(x_left, y_line, x_right, y_line, pen_bridge)
-                puente_line.setZValue(0)
-                self.bridge_lines.append(puente_line)
+            for tooth in row:
+                if tooth.has_bridge:
+                    rect = tooth.faces["top"].mapToScene(tooth.faces["top"].boundingRect()).boundingRect()
+                    y_line = rect.center().y() + tooth.size / 2 - 10
+                    x_left, x_right = rect.left() - 5, rect.right() + 5
+                    ln = self.scene.addLine(x_left, y_line, x_right, y_line, BRIDGE_PEN)
+                    ln.setZValue(0)
+                    self.bridge_lines.append(ln)
 
-    def apply_batch_states(self, states_list):
-        from collections import defaultdict
-        tooth_states = defaultdict(list)
-        for (st_int, d_int, faces) in states_list:
-            estado_name = ESTADOS_POR_NUM.get(st_int, None)
-            if not estado_name:
-                print(f"Estado {st_int} no definido")
+    # ------------------------------------------------------
+    def apply_batch_states(self, states: List[Tuple[int, int, str]]) -> None:
+        per_tooth: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
+        for st, dnum, faces in states:
+            name = ESTADOS_POR_NUM.get(st)
+            if not name:
+                print(f"[WARN] Estado {st} no definido")
                 continue
-            found = self.find_tooth(str(d_int))
-            if not found:
-                print(f"No se encontró la pieza {d_int}")
+            tooth = self.find_tooth(str(dnum))
+            if not tooth:
+                print(f"[WARN] Pieza {dnum} no encontrada")
                 continue
-            tooth_states[d_int].append((estado_name, faces))
+            per_tooth[str(dnum)].append((name, faces))
 
-        # Resetea todos los dientes
+        # reset
         for row in self.dientes:
             for t in row:
-                t.reset_tooth()
+                t.reset()
 
-        # Aplica los estados
-        for d_int, est_list in tooth_states.items():
-            found = self.find_tooth(str(d_int))
-            for (ename, faces) in est_list:
-                if ename == "Obturacion" and faces:
-                    found.apply_obturation_faces(faces)
+        # aplica
+        for num, lst in per_tooth.items():
+            t = self.find_tooth(num)
+            for name, faces in lst:
+                if name == "Obturacion" and faces:
+                    t.apply_obturation_faces(faces)
                 else:
-                    found.apply_state(ename)
-
+                    t.apply_state(name)
         self.update_bridges()
 
-    def find_tooth(self, d_str):
+    # ------------------------------------------------------
+    def find_tooth(self, num: str) -> ToothItem | None:
         for row in self.dientes:
             for t in row:
-                if t.tooth_num == d_str:
+                if t.num == num:
                     return t
         return None
+
+

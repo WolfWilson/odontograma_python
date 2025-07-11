@@ -1,169 +1,273 @@
 #!/usr/bin/env python
-# Modules/views.py
 # coding: utf-8
+"""
+views.py – Ventana principal del Odontograma
+· Lista bocas  → get_bocas_consulta_efector()
+· Detalle      → get_odontograma_data(idBoca)
+"""
+from __future__ import annotations
 
 import os
-from PyQt5.QtWidgets import (
-    QMainWindow, QHBoxLayout, QVBoxLayout, QFormLayout, QLineEdit,
-    QLabel, QPushButton, QComboBox, QWidget
-)
-from PyQt5.QtGui import QPixmap, QIcon
+from typing import Dict, List
+
 from PyQt5.QtCore import Qt
-
-# from Modules.modelos import OdontogramView  # con imágenes
-from Modules.modelos_sin_imagenes import OdontogramView  # sin imágenes
-from Modules.utils import (
-    resource_path,
-    parse_dental_states,
-    ESTADOS
+from PyQt5.QtGui import QColor, QFont, QFontMetrics, QIcon
+from PyQt5.QtWidgets import (
+    QFileDialog,
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QTabWidget,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
-class MainWindow(QMainWindow):
-    def __init__(self, data_dict):
-        super().__init__()
-        self.setWindowTitle("Odontograma")
+from Modules.conexion_db import get_bocas_consulta_efector, get_odontograma_data
+from Modules.menu_estados import MenuEstados
+from Modules.modelos_sin_imagenes import OdontogramView
+from Modules.utils import parse_dental_states, resource_path
 
-        # 1) Icono de ventana => src/icon.png
+
+# -----------------------------------------------------------------------------
+class MainWindow(QMainWindow):
+    """Ventana principal de la aplicación."""
+
+    # -------------------------------------------------------------------------
+    def __init__(self, data_dict: Dict[str, str | List[Dict[str, str]]]) -> None:
+        super().__init__()
+        self.setWindowTitle("Odontograma – Auditoría por Prestador")
+
+        # --- Parámetros -----------------------------------------------------
+        self.idafiliado: str = str(data_dict.get("credencial", ""))
+        self.fecha_param: str = str(data_dict.get("fecha", ""))
+        self.colegio: str = str(data_dict.get("colegio", ""))
+        self.codfact: str = str(data_dict.get("efectorCodFact", ""))
+        self.efectorName: str = str(data_dict.get("efectorNombre", ""))
+
+        # --- Icono ----------------------------------------------------------
         icon_path = resource_path("src/icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
-        else:
-            print("No se encontró src/icon.png para ícono")
 
-        # 2) Fondo => src/background.jpg
-        bg_path = resource_path("src/background.jpg")
-        if os.path.exists(bg_path):
-            # En Windows, conviene reemplazar \ con / en la ruta
-            bg_path_ = bg_path.replace('\\', '/')
-            css = f"""
-            QMainWindow {{
-                background-image: url("{bg_path_}");
-                background-repeat: no-repeat;
-                background-position: center;
-            }}
-            """
-            self.setStyleSheet(css)
-        else:
-            print("No se encontró src/background.jpg para fondo")
+        # --- Vista odontograma --------------------------------------------
+        self.odontogram_view = OdontogramView(locked=False)
 
-        # 3) Vista odontograma
-        self.locked_mode = bool(data_dict.get("dientes"))
-        self.odontogram_view = OdontogramView(locked=self.locked_mode)
-        # Mantenemos el fondo de la escena en blanco
-        self.odontogram_view.setStyleSheet("background-color: white;")
+        # --- Labels de valores (negro, fondo transparente) -----------------
+        self.lblCredValue = self._value_label()
+        self.lblAfilValue = self._value_label()
+        self.lblPrestValue = self._value_label()
+        self.lblFechaValue = self._value_label()
+        self.lblObsValue = self._value_label(word_wrap=True)
 
-        # 4) Campos
-        self.credencialEdit = QLineEdit(data_dict.get("credencial", ""))
-        self.prestadorEdit  = QLineEdit(data_dict.get("prestador", ""))
-        self.afiliadoEdit   = QLineEdit(data_dict.get("afiliado", ""))
-        self.fechaEdit      = QLineEdit(data_dict.get("fecha", ""))
-        self.observacionesEdit = QLineEdit(data_dict.get("observaciones", ""))
-        self.observacionesEdit.setMaxLength(100)
+        # --- Encabezado -----------------------------------------------------
+        header = self._build_header()
 
-        if self.locked_mode:
-            for field in [self.credencialEdit, self.prestadorEdit,
-                          self.afiliadoEdit, self.fechaEdit, self.observacionesEdit]:
-                field.setReadOnly(True)
+        # --- Datos de bocas -------------------------------------------------
+        bocas_rows: List[Dict[str, str]] | None = data_dict.get("filas_bocas")
+        if bocas_rows is None:
+            try:
+                bocas_rows = get_bocas_consulta_efector(
+                    idafiliado=self.idafiliado,
+                    colegio=int(self.colegio) if self.colegio.isdigit() else 0,
+                    codfact=int(self.codfact) if self.codfact.isdigit() else 0,
+                    fecha=self.fecha_param,
+                )
+            except Exception as exc:
+                print("[WARN] No se pudo obtener bocas:", exc)
+                bocas_rows = []
 
-        # 5) Layout formulario
-        formLayout = QFormLayout()
+        # --- Pestañas -------------------------------------------------------
+        self.tabs = self._build_tabs(bocas_rows)
 
-        # Fila 1
-        row1 = QHBoxLayout()
-        row1.addWidget(QLabel("Credencial:"))
-        row1.addWidget(self.credencialEdit)
-        row1.addSpacing(20)
-        row1.addWidget(QLabel("Afiliado:"))
-        row1.addWidget(self.afiliadoEdit)
-        row1.addSpacing(20)
-        row1.addWidget(QLabel("Fecha:"))
-        row1.addWidget(self.fechaEdit)
-        formLayout.addRow(row1)
-
-        # Fila 2 (Prestador)
-        row2 = QHBoxLayout()
-        row2.addWidget(QLabel("Prestador:"))
-        row2.addWidget(self.prestadorEdit)
-        formLayout.addRow(row2)
-
-        # Fila 3 (Observaciones)
-        row3 = QHBoxLayout()
-        row3.addWidget(QLabel("Observaciones:"))
-        row3.addWidget(self.observacionesEdit)
-        formLayout.addRow(row3)
-
-        # 6) Leyenda, Estado, Botón Descargar
-        self.state_selector = QComboBox()
-        self.state_selector.addItems(ESTADOS.keys())
-        self.state_selector.currentTextChanged.connect(self.on_state_changed)
-        if self.locked_mode:
-            self.state_selector.setEnabled(False)
-
-        self.legendLabel = QLabel()
-        leyenda_path = resource_path("src/leyenda.png")
-        if os.path.exists(leyenda_path):
-            self.legendLabel.setPixmap(QPixmap(leyenda_path))
-        else:
-            self.legendLabel.setText("No se encontró leyenda.png")
-        self.legendLabel.setScaledContents(True)
-        self.legendLabel.setFixedWidth(280)
-        self.legendLabel.setFixedHeight(550)
-
-        self.descargarButton = QPushButton("Descargar")
+        # --- Botón Descargar ------------------------------------------------
+        self.descargarButton = QPushButton("DESCARGAR")
+        self.descargarButton.setObjectName("btnDescargar")
         self.descargarButton.clicked.connect(self.on_descargar_clicked)
 
-        legendLayout = QVBoxLayout()
-        legendLayout.addWidget(self.legendLabel)
-        lblEstado = QLabel("Estado actual:")
-        legendLayout.addWidget(lblEstado)
-        legendLayout.addWidget(self.state_selector)
-        legendLayout.addWidget(self.descargarButton)
+        # --- Layout general -------------------------------------------------
+        sidebar = QVBoxLayout()
+        sidebar.addWidget(self.tabs)
+        sidebar.addWidget(self.descargarButton)
+        sidebar.addStretch()
 
-        odontoLayout = QVBoxLayout()
-        odontoLayout.addWidget(self.odontogram_view)
+        odontogram_layout = QVBoxLayout()
+        odontogram_layout.addWidget(self.odontogram_view)
 
-        hLayoutOdon = QHBoxLayout()
-        hLayoutOdon.addLayout(legendLayout)
-        hLayoutOdon.addLayout(odontoLayout)
+        body = QHBoxLayout()
+        body.addLayout(sidebar, 0)
+        body.addLayout(odontogram_layout, 1)
 
-        mainLayout = QVBoxLayout()
-        mainLayout.addLayout(formLayout)
-        mainLayout.addLayout(hLayoutOdon)
+        root = QVBoxLayout()
+        root.addWidget(header)
+        root.addLayout(body)
 
         container = QWidget()
-        container.setLayout(mainLayout)
+        container.setLayout(root)
         self.setCentralWidget(container)
+        self.resize(1300, 800)
 
-        self.resize(1400, 800)
-        self.apply_dental_args(data_dict.get("dientes", ""))
+        # --- Selección inicial --------------------------------------------
+        self._cargar_por_defecto(bocas_rows)
 
-    def on_state_changed(self, new_state):
-        self.odontogram_view.set_current_state(new_state)
+    # ------------------------------------------------------------------ UI
+    def _build_header(self) -> QFrame:
+        """Encabezado justificado azul."""
+        header = QFrame(objectName="headerFrame")
+        header.setMinimumHeight(100)
 
-    def on_descargar_clicked(self):
-        from PyQt5.QtWidgets import QFileDialog
+        grid = QGridLayout(spacing=12)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 3)
+        grid.setColumnStretch(2, 1)
+        grid.setColumnStretch(3, 3)
 
-        afiliado = self.afiliadoEdit.text().strip().replace(" ", "_")
-        fecha = self.fechaEdit.text().strip().replace(" ", "_")
-        if not afiliado:
-            afiliado = "SIN_AFILIADO"
-        if not fecha:
-            fecha = "SIN_FECHA"
-        file_name = f"odontograma_{afiliado}_{fecha}.png"
+        f = QFont("Segoe UI", 12)
 
-        folder_path = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta", "")
-        if not folder_path:
+        grid.addWidget(self._key("CREDENCIAL:", f), 0, 0)
+        grid.addWidget(self.lblCredValue, 0, 1)
+        grid.addWidget(self._key("AFILIADO:", f), 0, 2)
+        grid.addWidget(self.lblAfilValue, 0, 3)
+
+        grid.addWidget(self._key("PRESTADOR:", f), 1, 0)
+        grid.addWidget(self.lblPrestValue, 1, 1)
+        grid.addWidget(self._key("FECHA:", f), 1, 2)
+        grid.addWidget(self.lblFechaValue, 1, 3)
+
+        grid.addWidget(self._key("OBSERVACIONES:", f), 2, 0, Qt.AlignTop)
+        grid.addWidget(self.lblObsValue, 2, 1, 1, 3)
+
+        header.setLayout(grid)
+        return header
+
+    # ------------------------------------------------------------------
+    def _key(self, text: str, font: QFont) -> QLabel:
+        lbl = QLabel(text, objectName="keyLabel")
+        lbl.setFont(font)
+        self._add_shadow(lbl)
+        return lbl
+
+    def _value_label(self, *, word_wrap: bool = False) -> QLabel:
+        lbl = QLabel(objectName="valueLabel")
+        lbl.setWordWrap(word_wrap)
+        lbl.setStyleSheet("color:black; font-weight:bold; background:transparent;")
+        lbl.setMinimumWidth(150)
+        return lbl
+
+    def _add_shadow(self, lbl: QLabel) -> None:
+        """Aplica una sombra negra suave alrededor del texto."""
+        shadow = QGraphicsDropShadowEffect(blurRadius=6)
+        shadow.setOffset(0, 0)
+        shadow.setColor(QColor(0, 0, 0, 180))
+        lbl.setGraphicsEffect(shadow)
+
+    # -------------------------------------------------------------- pestañas
+    def _build_tabs(self, bocas_rows: List[Dict[str, str]]) -> QTabWidget:
+        tabs = QTabWidget()
+        tabs.setTabPosition(QTabWidget.West)
+
+        tab_bocas = QWidget()
+        self._build_tab_bocas(tab_bocas, bocas_rows)
+        tabs.addTab(tab_bocas, "Bocas Disponibles")
+
+        tabs.addTab(
+            MenuEstados(
+                on_estado_selected=self._on_estado_clicked,
+                locked=False,
+                title="Prestaciones Existentes",
+            ),
+            "Pres Existentes",
+        )
+
+        tabs.addTab(
+            MenuEstados(
+                on_estado_selected=self._on_estado_clicked,
+                locked=False,
+                title="Prestaciones Requeridas",
+                estados_personalizados={
+                    "Caries": "icon_cariesR.png",
+                    "Extracción": "icon_extraccionR.png",
+                    "Prótesis Removible SUPERIOR": "icon_prsR.png",
+                    "Prótesis Removible INFERIOR": "icon_priR.png",
+                    "Prótesis Completa SUPERIOR": "icon_pcsR.png",
+                    "Prótesis Completa INFERIOR": "icon_pciR.png",
+                },
+            ),
+            "Prest Requeridas",
+        )
+
+
+        return tabs
+
+    def _build_tab_bocas(
+        self, container: QWidget, filas_bocas: List[Dict[str, str]]
+    ) -> None:
+        layout = QVBoxLayout()
+        self.tableBocas = QTableWidget()
+        self.tableBocas.setColumnCount(3)
+        self.tableBocas.setHorizontalHeaderLabels(
+            ["idBoca (oculto)", "Fecha Carga", "Resumen Clínico"]
+        )
+        self.tableBocas.cellClicked.connect(self._on_boca_seleccionada)
+        layout.addWidget(self.tableBocas)
+        container.setLayout(layout)
+
+        self._cargar_tabla_bocas(filas_bocas)
+        self.tableBocas.setColumnHidden(0, True)
+
+    # --------------------------------------------------------- carga/eventos
+    def _cargar_tabla_bocas(self, filas: List[Dict[str, str]]) -> None:
+        self.tableBocas.setRowCount(len(filas))
+        for r, d in enumerate(filas):
+            self.tableBocas.setItem(r, 0, QTableWidgetItem(str(d.get("idboca", ""))))
+            self.tableBocas.setItem(
+                r, 1, QTableWidgetItem(str(d.get("fechacarga", "")))
+            )
+            self.tableBocas.setItem(
+                r, 2, QTableWidgetItem(str(d.get("resumenclinico", "")))
+            )
+
+    def _on_boca_seleccionada(self, row: int, _col: int) -> None:
+        id_item = self.tableBocas.item(row, 0)
+        if not (id_item and id_item.text().strip().isdigit()):
             return
 
-        full_path = os.path.join(folder_path, file_name)
-        pixmap = self.grab()
-        saved_ok = pixmap.save(full_path, "PNG")
-        if saved_ok:
-            print(f"Captura guardada en: {full_path}")
-        else:
-            print("Error al guardar la captura.")
+        idboca = int(id_item.text())
+        data = get_odontograma_data(idboca)
 
-    def apply_dental_args(self, dientes_str):
-        if dientes_str:
-            parsed = parse_dental_states(dientes_str)
-            self.odontogram_view.apply_batch_states(parsed)
+        self.lblCredValue.setText(data.get("credencial", ""))
+        self.lblAfilValue.setText(data.get("afiliado", ""))
+        self.lblPrestValue.setText(data.get("prestador", ""))
+        self.lblFechaValue.setText(data.get("fecha", ""))
+        self.lblObsValue.setText(data.get("observaciones", ""))
+
+        self.odontogram_view.apply_batch_states(
+            parse_dental_states(data.get("dientes", ""))
+        )
+        print(f"[DEBUG] Seleccionaste idBoca={idboca} ⇒ {data}")
+
+    def _cargar_por_defecto(self, filas_bocas: List[Dict[str, str]]) -> None:
+        if filas_bocas:
+            self._on_boca_seleccionada(0, 0)
+
+    # -------------------------------------------------------------- slots
+    def _on_estado_clicked(self, estado: str) -> None:
+        print(f"[INFO] Estado seleccionado: {estado}")
+        self.odontogram_view.set_current_state(estado)
+
+    def on_descargar_clicked(self) -> None:
+        cred = self.lblCredValue.text().strip().replace(" ", "_") or "SIN_CREDENCIAL"
+        fecha = self.lblFechaValue.text().strip().replace(" ", "_") or "SIN_FECHA"
+        path = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta", "")
+        if not path:
+            return
+        full = os.path.join(path, f"odontograma_{cred}_{fecha}.png")
+        if self.grab().save(full, "PNG"):
+            print("[OK] Captura guardada:", full)
+        else:
+            print("[ERROR] No se pudo guardar la imagen.")
