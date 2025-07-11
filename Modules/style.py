@@ -127,7 +127,7 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
         background-color: #e0e0e0;
         color: black;
         border: 1px solid #7aa4d8;
-        border-top-left-radius: 6px;
+        border-top-left-radius: 8px;
         border-bottom-left-radius: 6px;
         padding: 6px 4px;          /* vertical | horizontal */
         /*  Ajuste de tamaño:  grosor = min-width  |  largo = min-height  */
