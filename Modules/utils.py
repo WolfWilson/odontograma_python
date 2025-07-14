@@ -28,7 +28,6 @@ ESTADOS = {
     "Extracción": 14,
     "Caries": 15,
 }
-
 ESTADOS_POR_NUM = {v: k for k, v in ESTADOS.items()}
 
 # ─────────────────────────────────────────────────────────────
@@ -45,44 +44,78 @@ PROTESIS_SHORT = {
 # Configuración geométrica del odontograma
 # ─────────────────────────────────────────────────────────────
 TOOTH_SIZE: int = 40        # píxeles del cuadrado base
-TOOTH_MARGIN: int = 10      # espacio entre piezas
+TOOTH_MARGIN: int = 10      # espacio entre piezas en la misma fila
+ROW_MARGIN:   int = 10      # espacio vertical entre filas
 
+# ------------------------------------------------------------------
+# 1) FILAS DE PIEZAS
+#    - Primeras dos filas = adultos (superior, inferior)
+#    - Siguientes dos filas = niños (superior, inferior)
+# ------------------------------------------------------------------
 TEETH_ROWS: List[List[str]] = [
-    # Adultos superiores
-    ["18", "17", "16", "15", "14", "13", "12", "11",
-     "21", "22", "23", "24", "25", "26", "27", "28"],
-    # Niños superiores
-    ["55", "54", "53", "52", "51", "61", "62", "63", "64", "65"],
-    # Niños inferiores
-    ["85", "84", "83", "82", "81", "71", "72", "73", "74", "75"],
-    # Adultos inferiores
-    ["48", "47", "46", "45", "44", "43", "42", "41",
-     "31", "32", "33", "34", "35", "36", "37", "38"],
+    # Adultos superiores   (fila 0)
+    ["18","17","16","15","14","13","12","11",
+     "21","22","23","24","25","26","27","28"],
+
+    # Adultos inferiores   (fila 1)
+    ["48","47","46","45","44","43","42","41",
+     "31","32","33","34","35","36","37","38"],
+
+    # Niños superiores     (fila 2)
+    ["55","54","53","52","51","61","62","63","64","65"],
+
+    # Niños inferiores     (fila 3)
+    ["85","84","83","82","81","71","72","73","74","75"],
 ]
 
-Y_POSITIONS: List[int] = [50, 200, 350, 500]  # coordenada Y fila a fila
+# ------------------------------------------------------------------
+# 2) POSICIÓN VERTICAL DE CADA FILA
+#    - Compactamos adultas (fila0 y fila1) con ROW_MARGIN
+#    - Dejamos un hueco mayor antes del bloque infantil
+# ------------------------------------------------------------------
+START_Y = 50                                # Y de la primera fila
+GAP_ADULT = ROW_MARGIN + TOOTH_SIZE         # distancia entre fila 0 y 1
+GAP_CHILD_BLOCK = 80                        # hueco grande antes de las filas infantiles
+GAP_CHILD = ROW_MARGIN + TOOTH_SIZE         # distancia entre filas infantiles
+
+Y_POSITIONS: List[int] = [
+    START_Y,                                            # fila 0
+    START_Y + GAP_ADULT,                                # fila 1
+    START_Y + GAP_ADULT + GAP_CHILD_BLOCK,              # fila 2
+    START_Y + GAP_ADULT + GAP_CHILD_BLOCK + GAP_CHILD,  # fila 3
+]
+
+# ------------------------------------------------------------------
+#  (formato anterior – lo conservamos por si quieres volver atrás)
+# ------------------------------------------------------------------
+# TEETH_ROWS_OLD: List[List[str]] = [
+#     # Adultos superiores
+#     ["18","17","16","15","14","13","12","11",
+#      "21","22","23","24","25","26","27","28"],
+#     # Niños superiores
+#     ["55","54","53","52","51","61","62","63","64","65"],
+#     # Niños inferiores
+#     ["85","84","83","82","81","71","72","73","74","75"],
+#     # Adultos inferiores
+#     ["48","47","46","45","44","43","42","41",
+#      "31","32","33","34","35","36","37","38"],
+# ]
+#
+# Y_POSITIONS_OLD: List[int] = [50, 200, 350, 500]
 
 # ─────────────────────────────────────────────────────────────
 # Caras ↔ letra para obturación selectiva
 # ─────────────────────────────────────────────────────────────
 FACE_MAP = {
-    "M": "left",     # Mesial  → cara izquierda
-    "D": "right",    # Distal  → cara derecha
-    "V": "top",      # Vestibular / Bucal → superior
-    "B": "top",
-    "L": "bottom",   # Lingual / Palatino → inferior
-    "P": "bottom",
-    "I": "center",   # Incisal / Oclusal → centro
-    "O": "center",
+    "M": "left", "D": "right", "V": "top", "B": "top",
+    "L": "bottom", "P": "bottom", "I": "center", "O": "center",
 }
 
 # ─────────────────────────────────────────────────────────────
 # Funciones de utilidad
 # ─────────────────────────────────────────────────────────────
 def resource_path(relative_path: str) -> str:
-    """
-    Devuelve la ruta absoluta a un recurso, compatible con PyInstaller.
-    """
+    """ Devuelve la ruta absoluta a un recurso, compatible con PyInstaller. """
     base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
     return os.path.join(base_path, relative_path)
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 """
-Odontograma sin imágenes – versión optimizada.
+Odontograma sin imágenes – versión optimizada
+· Filas centradas horizontalmente respecto al ancho máximo.
+· Espaciado vertical configurable con TOP_PADDING y BETWEEN_ROWS_EXTRA.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from PyQt5.QtWidgets import (
     QGraphicsView,
 )
 
-# Configuración y mapeos
+# Configuración y mapeos -------------------------------------------------------
 from Modules.utils import (
     ESTADOS_POR_NUM,
     PROTESIS_SHORT,
@@ -31,7 +33,7 @@ from Modules.utils import (
     FACE_MAP,
 )
 
-# Paleta gráfica
+# Paleta gráfica ---------------------------------------------------------------
 from Styles.style_models import (
     BLUE, YELLOW, WHITE, BLACK,
     RED, DARK_GRAY, DARK_YELLOW,
@@ -39,8 +41,14 @@ from Styles.style_models import (
     WHITE_BRUSH, BLUE_BRUSH, YELLOW_BRUSH, TRANSPARENT_BRUSH,
 )
 
+# Espaciado vertical -----------------------------------------------------------
+TOP_PADDING: int        = 10   # espacio antes de la primera fila
+BETWEEN_ROWS_EXTRA: int = 60    # píxeles extra entre cada fila
+BOTTOM_PADDING: int     = 40   # (referencia) hueco al final de la escena
+
+
 # ─────────────────────────────────────────────────────────────
-# Cara individual
+# Cara individual de diente
 # ─────────────────────────────────────────────────────────────
 class ToothFacePolygon(QGraphicsPolygonItem):
     _selected: bool
@@ -52,6 +60,7 @@ class ToothFacePolygon(QGraphicsPolygonItem):
         self.setPen(QPen(BLACK, 2))
         self._selected = False
 
+    # ------------------------------------------------------------------
     def mousePressEvent(self, event):  # type: ignore[override]
         view = self.tooth.odontogram_view
         if view.locked:
@@ -67,9 +76,11 @@ class ToothFacePolygon(QGraphicsPolygonItem):
             self.tooth.apply_state(state)
         super().mousePressEvent(event)
 
+    # ------------------------------------------------------------------
     def _toggle_obturation(self) -> None:
         self._selected = not self._selected
         self.setBrush(BLUE_BRUSH if self._selected else WHITE_BRUSH)
+
 
 # ─────────────────────────────────────────────────────────────
 # Pieza dental completa
@@ -197,6 +208,7 @@ class ToothItem:
         else:
             print(f"[WARN] Estado no manejado: {name}")
 
+    # -------- utilidades internas de ToothItem -------------
     def _apply_extraccion(self) -> None:
         self._set_lines(True)
         self._shade_all(RED)
@@ -207,7 +219,6 @@ class ToothItem:
             if name:
                 self.faces[name].setBrush(BLUE_BRUSH)
 
-    # ------------- utilidades internas ---------------------
     def reset(self) -> None:
         self._shade_all(WHITE)
         self._set_lines(False)
@@ -264,21 +275,24 @@ class OdontogramView(QGraphicsView):
 
     # ------------------------------------------------------
     def _create_teeth(self) -> None:
+        """
+        Centra cada fila respecto al ancho máximo.
+        Aplica TOP_PADDING y BETWEEN_ROWS_EXTRA al eje Y.
+        """
         size, margin = TOOTH_SIZE, TOOTH_MARGIN
-        width_row1 = len(TEETH_ROWS[0]) * (size + margin) - margin
-        width_row2 = len(TEETH_ROWS[1]) * (size + margin) - margin
-        width_row3 = len(TEETH_ROWS[2]) * (size + margin) - margin
-        offset2 = (width_row1 - width_row2) // 2
-        offset3 = (width_row1 - width_row3) // 2
+        base_width = max(len(r) for r in TEETH_ROWS) * (size + margin) - margin
 
         for idx, row in enumerate(TEETH_ROWS):
-            y = Y_POSITIONS[idx]
-            x_start = 50 + (offset2 if idx == 1 else offset3 if idx == 2 else 0)
+            row_width = len(row) * (size + margin) - margin
+            offset_x = (base_width - row_width) // 2
+            y = Y_POSITIONS[idx] + TOP_PADDING + idx * BETWEEN_ROWS_EXTRA
+
             t_row: List[ToothItem] = []
             for i, num in enumerate(row):
-                x = x_start + i * (size + margin)
+                x = 50 + offset_x + i * (size + margin)
                 t = ToothItem(x, y, size, self._scene, self, num)
                 t_row.append(t)
+
                 txt = cast(QGraphicsTextItem, self._scene.addText(num, QFont("Arial", 10)))
                 txt.setDefaultTextColor(BLACK)
                 txt.setPos(
@@ -286,6 +300,19 @@ class OdontogramView(QGraphicsView):
                     y + size + 3
                 )
             self.dientes.append(t_row)
+
+        # -------- versión anterior (desplazamientos fijos) --------
+        # size, margin = TOOTH_SIZE, TOOTH_MARGIN
+        # width_row1 = len(TEETH_ROWS[0]) * (size + margin) - margin
+        # width_row2 = len(TEETH_ROWS[1]) * (size + margin) - margin
+        # width_row3 = len(TEETH_ROWS[2]) * (size + margin) - margin
+        # offset2 = (width_row1 - width_row2) // 2
+        # offset3 = (width_row1 - width_row3) // 2
+        # for idx, row in enumerate(TEETH_ROWS):
+        #     y = Y_POSITIONS[idx]
+        #     x_start = 50 + (offset2 if idx == 1 else offset3 if idx == 2 else 0)
+        #     ...
+        # ----------------------------------------------------------
 
     # ------------------------------------------------------
     def set_current_state(self, name: str) -> None:
@@ -305,10 +332,8 @@ class OdontogramView(QGraphicsView):
                     ).boundingRect()
                     y_line = rect.center().y() + tooth.size / 2 - 10
                     x_left, x_right = rect.left() - 5, rect.right() + 5
-                    ln = cast(
-                        QGraphicsLineItem,
-                        self._scene.addLine(x_left, y_line, x_right, y_line, BRIDGE_PEN),
-                    )
+                    ln = cast(QGraphicsLineItem,
+                              self._scene.addLine(x_left, y_line, x_right, y_line, BRIDGE_PEN))
                     ln.setZValue(0)
                     self.bridge_lines.append(ln)
 
@@ -326,13 +351,15 @@ class OdontogramView(QGraphicsView):
                 continue
             per_tooth[str(dnum)].append((name, faces))
 
+        # reset
         for row in self.dientes:
             for t in row:
                 t.reset()
 
+        # aplica
         for num, lst in per_tooth.items():
             t = self.find_tooth(num)
-            assert t is not None   # para Pylance
+            assert t is not None
             for name, faces in lst:
                 if name == "Obturacion" and faces:
                     t.apply_obturation_faces(faces)
