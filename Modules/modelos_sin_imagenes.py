@@ -32,7 +32,7 @@ from Modules.utils import (
 )
 
 # Paleta gráfica
-from Modules.style_models import (
+from Styles.style_models import (
     BLUE, YELLOW, WHITE, BLACK,
     RED, DARK_GRAY, DARK_YELLOW,
     BLUE_PEN, YELLOW_PEN, DOT_BLUE_PEN, BRIDGE_PEN,

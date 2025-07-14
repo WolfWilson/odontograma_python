@@ -9,7 +9,7 @@ from typing import Any
 from PyQt5.QtWidgets import QApplication
 
 try:
-    from Modules.style import apply_style              # opcional
+    from Styles.style import apply_style              # opcional
 except ImportError:
     def apply_style(app: Any) -> None: pass            # stub
 
