@@ -180,6 +180,7 @@ class ToothItem:
 
     # ------------------ métodos de estado -------------------
     def apply_state(self, name: str) -> None:
+    
         if name == "Obturacion":
             for face in self.faces.values():
                 face.setBrush(BLUE_BRUSH)
@@ -214,6 +215,7 @@ class ToothItem:
         self._shade_all(RED)
 
     def apply_obturation_faces(self, faces: str) -> None:
+        print(f"[DEBUG]    ToothItem {self.num}: obturación caras='{faces}'")
         for c in faces.upper():
             name = FACE_MAP.get(c)
             if name:
@@ -339,6 +341,7 @@ class OdontogramView(QGraphicsView):
 
     # ------------------------------------------------------
     def apply_batch_states(self, states: List[Tuple[int, int, str]]) -> None:
+        print("[DEBUG] appli_batch_states raw:", states) # linea de control de los comandos que se parsearon y que se envian al modelo que dibuja el grafico en el odontograma
         per_tooth: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
         for st, dnum, faces in states:
             name = ESTADOS_POR_NUM.get(st)
