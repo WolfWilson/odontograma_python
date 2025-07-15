@@ -43,7 +43,7 @@ from Styles.style_models import (
 
 # Espaciado vertical -----------------------------------------------------------
 TOP_PADDING: int        = 10   # espacio antes de la primera fila
-BETWEEN_ROWS_EXTRA: int = 60    # píxeles extra entre cada fila
+BETWEEN_ROWS_EXTRA: int = 60   # píxeles extra entre cada fila
 BOTTOM_PADDING: int     = 40   # (referencia) hueco al final de la escena
 
 
@@ -180,16 +180,28 @@ class ToothItem:
 
     # ------------------ métodos de estado -------------------
     def apply_state(self, name: str) -> None:
-    
+        """
+        Aplica el estado por nombre. Para prótesis diferenciamos
+        color según la variante:
+            * *_R → rojo (códigos 9-12)
+            * *_B → azul (códigos 16-19)
+        """
+        # ----- obturación completa --------------------------
         if name == "Obturacion":
             for face in self.faces.values():
                 face.setBrush(BLUE_BRUSH)
             return
 
+        # ----- prótesis (texto + color) ---------------------
         if name in PROTESIS_SHORT:
             self._set_protesis_text(PROTESIS_SHORT[name])
+            if name.endswith("_B"):
+                self.protesis.setDefaultTextColor(BLUE)
+            else:                              # incluye _R o antiguos 9-12
+                self.protesis.setDefaultTextColor(RED)
             return
 
+        # ----- resto de estados -----------------------------
         handlers: Dict[str, Callable[[], None]] = {
             "Ninguno":              self.reset,
             "Agenesia":             lambda: self._shade_all(DARK_GRAY),
@@ -303,19 +315,6 @@ class OdontogramView(QGraphicsView):
                 )
             self.dientes.append(t_row)
 
-        # -------- versión anterior (desplazamientos fijos) --------
-        # size, margin = TOOTH_SIZE, TOOTH_MARGIN
-        # width_row1 = len(TEETH_ROWS[0]) * (size + margin) - margin
-        # width_row2 = len(TEETH_ROWS[1]) * (size + margin) - margin
-        # width_row3 = len(TEETH_ROWS[2]) * (size + margin) - margin
-        # offset2 = (width_row1 - width_row2) // 2
-        # offset3 = (width_row1 - width_row3) // 2
-        # for idx, row in enumerate(TEETH_ROWS):
-        #     y = Y_POSITIONS[idx]
-        #     x_start = 50 + (offset2 if idx == 1 else offset3 if idx == 2 else 0)
-        #     ...
-        # ----------------------------------------------------------
-
     # ------------------------------------------------------
     def set_current_state(self, name: str) -> None:
         self.current_state = name
@@ -341,7 +340,7 @@ class OdontogramView(QGraphicsView):
 
     # ------------------------------------------------------
     def apply_batch_states(self, states: List[Tuple[int, int, str]]) -> None:
-        print("[DEBUG] appli_batch_states raw:", states) # linea de control de los comandos que se parsearon y que se envian al modelo que dibuja el grafico en el odontograma
+        print("[DEBUG] appli_batch_states raw:", states)  # linea de control
         per_tooth: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
         for st, dnum, faces in states:
             name = ESTADOS_POR_NUM.get(st)

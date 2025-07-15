@@ -43,7 +43,7 @@ ESTADOS = {
 
 ESTADOS_POR_NUM = {v: k for k, v in ESTADOS.items()}
 
-MAX_STATE = 19   # rango que acepta el parser
+MAX_STATE = 19   # rango máximo de estados
 
 # ─────────────────────────────────────────────────────────────
 # Abreviaturas para texto de prótesis (ambas variantes → mismo label)
@@ -88,7 +88,7 @@ Y_POSITIONS: List[int] = [
     START_Y + GAP_ADULT + GAP_CHILD_BLOCK + GAP_CHILD,
 ]
 
-# Formato anterior (conservado sólo como referencia) -------------
+# Formato anterior (conservado sólo como referencia)
 # TEETH_ROWS_OLD …
 # Y_POSITIONS_OLD …
 
@@ -101,7 +101,7 @@ FACE_MAP = {
 }
 VALID_FACE_CHARS = set(FACE_MAP.keys())
 
-# Conjunto de dientes válidos (para validar el parser)
+# Conjunto de dientes válidos (para validación externa)
 ALL_TEETH = {int(n) for fila in TEETH_ROWS for n in fila}
 
 # ─────────────────────────────────────────────────────────────
@@ -111,58 +111,3 @@ def resource_path(relative_path: str) -> str:
     """Devuelve la ruta absoluta a un recurso, compatible con PyInstaller."""
     base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
     return os.path.join(base_path, relative_path)
-
-
-def parse_dental_states(dental_str: str):
-    """
-    Convierte '117OV,118OVG' en [(estado_int, diente_int, caras_str), …]
-    • Filtra caras inválidas   • Descarta piezas inexistentes
-    """
-    if not dental_str:
-        return []
-    items = [x.strip() for x in dental_str.split(",") if x.strip()]
-    parsed_list = []
-    for item in items:
-        p = _parse_item_with_backtracking(item)
-        if p:
-            parsed_list.append(p)
-        else:
-            print(f"[WARN] No se pudo interpretar: {item}")
-
-    print("[DEBUG] → Lista parseada:", parsed_list)
-    return parsed_list
-
-
-def _sanitize_faces(faces: str) -> str:
-    faces_up = faces.upper()
-    if any(c not in VALID_FACE_CHARS for c in faces_up):
-        print(f"[WARN] Caras inválidas en '{faces}'; se descartan las desconocidas")
-    return "".join(c for c in faces_up if c in VALID_FACE_CHARS)
-
-
-def _parse_item_with_backtracking(item_str: str):
-    """
-    Resuelve (estado)(diente)(caras) con estado 1-2 dígitos.
-    Valida que diente ∈ ALL_TEETH y que estado ≤ MAX_STATE.
-    """
-    # —— 2 dígitos de estado ——
-    if len(item_str) >= 4:
-        try:
-            st_int = int(item_str[:2])
-            d_int = int(item_str[2:4])
-            if 1 <= st_int <= MAX_STATE and d_int in ALL_TEETH:
-                return (st_int, d_int, _sanitize_faces(item_str[4:]))
-        except ValueError:
-            pass
-
-    # —— 1 dígito de estado ——
-    if len(item_str) >= 3:
-        try:
-            st_int = int(item_str[0])
-            d_int = int(item_str[1:3])
-            if 1 <= st_int <= MAX_STATE and d_int in ALL_TEETH:
-                return (st_int, d_int, _sanitize_faces(item_str[3:]))
-        except ValueError:
-            pass
-
-    return None

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!odontrograma.py    main launcher
 # coding: utf-8
 """
 Ejemplo de uso:

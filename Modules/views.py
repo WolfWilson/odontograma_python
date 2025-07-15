@@ -7,7 +7,7 @@ views.py – Ventana principal del Odontograma
 from __future__ import annotations
 
 import os
-from typing import Dict, List
+from typing import Any, Dict, List, Mapping, cast
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QFont, QIcon
@@ -32,7 +32,8 @@ from PyQt5.QtWidgets import (
 from Modules.conexion_db import get_bocas_consulta_efector, get_odontograma_data
 from Modules.menu_estados import MenuEstados
 from Modules.modelos_sin_imagenes import OdontogramView
-from Modules.utils import parse_dental_states, resource_path
+from Modules.utils import resource_path
+from Utils.sp_data_parse import parse_dientes_sp
 from Utils.actions import capture_odontogram, make_refresh_button
 
 
@@ -40,7 +41,7 @@ class MainWindow(QMainWindow):
     """Ventana principal de la aplicación."""
 
     # ------------------------------------------------------------------
-    def __init__(self, data_dict: Dict[str, str | List[Dict[str, str]]]) -> None:
+    def __init__(self, data_dict: Mapping[str, Any]) -> None:   # ← Mapping, Any
         super().__init__()
         self.setWindowTitle("Odontograma – Auditoría por Prestador")
 
@@ -65,14 +66,18 @@ class MainWindow(QMainWindow):
         header = self._build_header()
 
         # ---------- Bocas disponibles ----------
-        filas_bocas: List[Dict[str, str]] = data_dict.get("filas_bocas") or []
+        filas_bocas_raw = data_dict.get("filas_bocas", [])
+        filas_bocas: List[Dict[str, str]] = (
+            cast(List[Dict[str, str]], filas_bocas_raw) if isinstance(filas_bocas_raw, list) else []
+        )
+
         if not filas_bocas:
             try:
                 filas_bocas = get_bocas_consulta_efector(
-                    idafiliado=data_dict.get("credencial", ""),
-                    colegio=int(data_dict.get("colegio", "0")),
-                    codfact=int(data_dict.get("efectorCodFact", "0")),
-                    fecha=data_dict.get("fecha", ""),
+                    idafiliado=str(data_dict.get("credencial", "")),
+                    colegio=int(str(data_dict.get("colegio", "0")) or 0),
+                    codfact=int(str(data_dict.get("efectorCodFact", "0")) or 0),
+                    fecha=str(data_dict.get("fecha", "")),
                 )
             except Exception as exc:
                 print("[WARN] No se pudo obtener bocas:", exc)
@@ -121,10 +126,12 @@ class MainWindow(QMainWindow):
     # --------------------------- HEADER -------------------------------
     # =================================================================
     def _build_header(self) -> QFrame:
-        hdr = QFrame(objectName="headerFrame")
+        hdr = QFrame()                  # ← antes QFrame(objectName="headerFrame")
+        hdr.setObjectName("headerFrame")
         hdr.setMinimumHeight(100)
 
-        grid = QGridLayout(spacing=12)
+        grid = QGridLayout()            # ← antes QGridLayout(spacing=12)
+        grid.setSpacing(12)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 3)
         grid.setColumnStretch(2, 1)
@@ -142,7 +149,7 @@ class MainWindow(QMainWindow):
         grid.addWidget(self._key("FECHA:", font_bold), 1, 2)
         grid.addWidget(self.lblFechaValue, 1, 3)
 
-        grid.addWidget(self._key("OBSERVACIONES:", font_bold), 2, 0, Qt.AlignTop)
+        grid.addWidget(self._key("OBSERVACIONES:", font_bold), 2, 0, Qt.AlignTop)  # type: ignore[attr-defined]
         grid.addWidget(self.lblObsValue, 2, 1, 1, 3)
 
         hdr.setLayout(grid)
@@ -152,7 +159,7 @@ class MainWindow(QMainWindow):
         lbl = QLabel(text)
         lbl.setFont(font)
         lbl.setStyleSheet("color:white;")
-        self._add_shadow(lbl)
+        self._add_shadow(lbl)           # ← sin cambios
         return lbl
 
     def _value_label(self, *, word_wrap: bool = False) -> QLabel:
@@ -162,7 +169,8 @@ class MainWindow(QMainWindow):
         return lbl
 
     def _add_shadow(self, lbl: QLabel) -> None:
-        shadow = QGraphicsDropShadowEffect(blurRadius=6)
+        shadow = QGraphicsDropShadowEffect()  # ← antes con blurRadius kwarg
+        shadow.setBlurRadius(6)
         shadow.setOffset(0, 0)
         shadow.setColor(QColor(0, 0, 0, 180))
         lbl.setGraphicsEffect(shadow)
@@ -232,14 +240,15 @@ class MainWindow(QMainWindow):
         self.current_idboca = int(item.text())
         data = get_odontograma_data(self.current_idboca)
 
-        self.lblCredValue.setText(data.get("credencial", ""))
-        self.lblAfilValue.setText(data.get("afiliado", ""))
-        self.lblPrestValue.setText(data.get("prestador", ""))
-        self.lblFechaValue.setText(data.get("fecha", ""))
-        self.lblObsValue.setText(data.get("observaciones", ""))
+        self.lblCredValue.setText(str(data.get("credencial", "")))
+        self.lblAfilValue.setText(str(data.get("afiliado", "")))
+        self.lblPrestValue.setText(str(data.get("prestador", "")))
+        self.lblFechaValue.setText(str(data.get("fecha", "")))
+        self.lblObsValue.setText(str(data.get("observaciones", "")))
 
+        # ------------------ NUEVO parseo centralizado -----------------
         self.odontogram_view.apply_batch_states(
-            parse_dental_states(data.get("dientes", ""))
+            parse_dientes_sp(str(data.get("dientes", "")))
         )
 
     def _on_estado_clicked(self, estado: str) -> None:
@@ -265,7 +274,7 @@ class MainWindow(QMainWindow):
         try:
             data = get_odontograma_data(self.current_idboca)
             self.odontogram_view.apply_batch_states(
-                parse_dental_states(data.get("dientes", ""))
+                parse_dientes_sp(str(data.get("dientes", "")))
             )
             QMessageBox.information(self, "Actualizado", "Odontograma refrescado.")
         except Exception as ex:

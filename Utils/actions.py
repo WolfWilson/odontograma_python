@@ -7,19 +7,19 @@ Acciones comunes:
   • Crear botón pequeño “Actualizar”.
 """
 
-# Modules/Utils/actions.py
 from __future__ import annotations
 
 import datetime as _dt
 import os
 from typing import Callable, Sequence, Tuple
 
-from PyQt5.QtCore import Qt, QSize      # ←  añadido QSize
+from PyQt5.QtCore import Qt, QSize          # ← añadido QSize
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QGraphicsView, QToolButton
 
-from Modules.utils import parse_dental_states, resource_path
-
+from Modules.utils import resource_path
+# Si alguna acción requiere parseo de cadenas crudas, usar:
+# from Utils.sp_data_parse import parse_dientes_sp
 
 # ----------------------------------------------------------------------
 # 1) Captura del odontograma a PNG
@@ -73,7 +73,7 @@ def refresh_states(
     y la aplica a `odontogram_view`.
     """
     raw_states = sp_func(db_connection, patient_id)
-    # El formato ya es (int,int,str); si recibes '117OV' etc. usa parse_dental_states.
+    # Si el SP devolviera strings '117OV', usar parse_dientes_sp antes.
     odontogram_view.apply_batch_states(list(raw_states))
     odontogram_view.viewport().update()
 
@@ -89,7 +89,7 @@ def make_refresh_button(
     btn = QToolButton()
     btn.setIcon(QIcon(resource_path("src/icon_refresh.png")))  # usa tu icono real
     btn.setToolTip(tooltip)
-    btn.setIconSize(QSize(18, 18))      # ←  antes Qt.QSize
+    btn.setIconSize(QSize(18, 18))      # ← antes Qt.QSize
     if on_click:
         btn.clicked.connect(on_click)   # type: ignore[arg-type]
     return btn

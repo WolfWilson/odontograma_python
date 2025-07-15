@@ -106,7 +106,8 @@ def get_odontograma_data(idboca: int | None = None) -> dict:
         fecha_fmt = (
             r0.fecha.strftime("%d/%m/%Y") if isinstance(r0.fecha, datetime) else str(r0.fecha)
         )
-
+        dientes_str = str(r0.dientes or "")
+        print(f"[DEBUG] Dientes devueltos (idBoca={idboca}): {dientes_str}")
         return {
             "credencial":    str(r0.credencial or ""),
             "afiliado":      str(r0.afiliado   or ""),
@@ -115,6 +116,7 @@ def get_odontograma_data(idboca: int | None = None) -> dict:
             "observaciones": str(r0.observaciones or ""),
             "dientes":       str(r0.dientes or ""),
         }
+    
     finally:
         cursor.close()
         conn.close()
