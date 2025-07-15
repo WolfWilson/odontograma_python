@@ -1,38 +1,54 @@
-# odontograma.py
-import sys
-import argparse
+#!odontrograma.py    main launcher
+# coding: utf-8
+"""
+Ejemplo de uso:
+python odontograma.py 354495 "01/02/2025" "ODONTOLOGO DE PRUEBA COCH" 3 333
+"""
+import sys, argparse
+from typing import Any
 from PyQt5.QtWidgets import QApplication
 
 try:
-    from PyQt5.QtWidgets import QFileDialog
-    from Modules.style import apply_style
+    from Styles.style import apply_style              # opcional
 except ImportError:
-    def apply_style(x):
-        pass
+    def apply_style(app: Any) -> None: pass            # stub
 
-from Modules.conexion_db import get_odontograma_data
-from Modules.views import MainWindow
+from Modules.conexion_db import get_bocas_consulta_efector
 
-def main():
-    parser = argparse.ArgumentParser()
-    # Argumento posicional (numero). También lo hacemos opcional con `nargs='?'`.
-    parser.add_argument("numero", type=int, nargs='?', default=None,
-                        help="Número para buscar en la BD (p.ej. 87). Si no se pasa, se abrirá vacío.")
+def build_data_dict(args, bocas_rows):
+    return {
+        "credencial":      args.credencial,
+        "fecha":           args.fecha,
+        "efectorNombre":   args.efectorNombre,
+        "colegio":         args.colegio,
+        "efectorCodFact":  args.efectorCodFact,
+        "filas_bocas":     bocas_rows,
+    }
 
-    args = parser.parse_args()
+def main() -> None:
+    p = argparse.ArgumentParser("Visualizador Odontograma")
+    p.add_argument("credencial",      type=str)
+    p.add_argument("fecha",           type=str)            # dd/mm/aaaa
+    p.add_argument("efectorNombre",   type=str)            # solo para mostrar
+    p.add_argument("colegio",         type=int)
+    p.add_argument("efectorCodFact",  type=int)
+    args = p.parse_args()
 
-    # Llamamos a get_odontograma_data con args.numero
-    data = get_odontograma_data(args.numero)
+    # ── SP de cabecera (4 parámetros) ────────────────────────
+    bocas_rows = get_bocas_consulta_efector(
+        idafiliado = args.credencial,
+        colegio    = args.colegio,
+        codfact    = args.efectorCodFact,
+        fecha      = args.fecha,
+    )
+
+    data_dict = build_data_dict(args, bocas_rows)
 
     app = QApplication(sys.argv)
     apply_style(app)
-
-    w = MainWindow(data)
-    w.show()
+    from Modules.views import MainWindow
+    MainWindow(data_dict).show()
     sys.exit(app.exec_())
-
 
 if __name__ == "__main__":
     main()
-
-#python odontograma.py 87

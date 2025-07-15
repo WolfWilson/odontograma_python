@@ -21,7 +21,7 @@ from PyQt5.QtCore import Qt, QPointF, QRectF
 # Si usas style.py (opcional):
 try:
     from PyQt5.QtWidgets import QFileDialog
-    from Modules.style import apply_style
+    from Styles.style import apply_style
 except ImportError:
     def apply_style(x):
         pass
