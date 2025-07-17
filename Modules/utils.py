@@ -30,15 +30,14 @@ ESTADOS = {
     "Prótesis Completa INFERIOR_R": 12,
 
     # --------------------------------------------------------
-    "Supernumerario": 13,
+    "Caries": 13,
     "Extracción": 14,
-    "Caries": 15,
-
+    
     # ---- Prótesis versión AZUL (nueva) ---------------------
-    "Prótesis Removible SUPERIOR_B": 16,
-    "Prótesis Removible INFERIOR_B": 17,
-    "Prótesis Completa SUPERIOR_B": 18,
-    "Prótesis Completa INFERIOR_B": 19,
+    "Prótesis Removible SUPERIOR_B": 15,
+    "Prótesis Removible INFERIOR_B": 16,
+    "Prótesis Completa SUPERIOR_B": 17,
+    "Prótesis Completa INFERIOR_B": 18,
 }
 
 ESTADOS_POR_NUM = {v: k for k, v in ESTADOS.items()}
