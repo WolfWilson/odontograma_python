@@ -7,7 +7,7 @@ views.py – Ventana principal del Odontograma
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Mapping, cast
+from typing import Any, Dict, List, Mapping, Tuple, cast
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QFont, QIcon
@@ -126,11 +126,11 @@ class MainWindow(QMainWindow):
     # --------------------------- HEADER -------------------------------
     # =================================================================
     def _build_header(self) -> QFrame:
-        hdr = QFrame()                  # ← antes QFrame(objectName="headerFrame")
+        hdr = QFrame()
         hdr.setObjectName("headerFrame")
         hdr.setMinimumHeight(100)
 
-        grid = QGridLayout()            # ← antes QGridLayout(spacing=12)
+        grid = QGridLayout()
         grid.setSpacing(12)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 3)
@@ -159,7 +159,7 @@ class MainWindow(QMainWindow):
         lbl = QLabel(text)
         lbl.setFont(font)
         lbl.setStyleSheet("color:white;")
-        self._add_shadow(lbl)           # ← sin cambios
+        self._add_shadow(lbl)
         return lbl
 
     def _value_label(self, *, word_wrap: bool = False) -> QLabel:
@@ -169,7 +169,7 @@ class MainWindow(QMainWindow):
         return lbl
 
     def _add_shadow(self, lbl: QLabel) -> None:
-        shadow = QGraphicsDropShadowEffect()  # ← antes con blurRadius kwarg
+        shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(6)
         shadow.setOffset(0, 0)
         shadow.setColor(QColor(0, 0, 0, 180))
@@ -246,11 +246,44 @@ class MainWindow(QMainWindow):
         self.lblFechaValue.setText(str(data.get("fecha", "")))
         self.lblObsValue.setText(str(data.get("observaciones", "")))
 
-        # ------------------ NUEVO parseo centralizado -----------------
-        self.odontogram_view.apply_batch_states(
-            parse_dientes_sp(str(data.get("dientes", "")))
-        )
+        raw_dientes = str(data.get("dientes", ""))
 
+        # ------------------ DEBUG: antes de parsear ------------------
+        print("[DEBUG]   Raw string dientes:", raw_dientes)
+
+        # ------------------ Parseo centralizado ----------------------
+        states = parse_dientes_sp(raw_dientes)
+
+        # ------------------ DEBUG: después de parsear ----------------
+        self._debug_states(raw_dientes, states)
+
+        # ------------------ Aplicar al modelo ------------------------
+        self.odontogram_view.apply_batch_states(states)
+
+    # ─────────────────────────────────────────────────────────────
+    # DEBUG helper
+    # ─────────────────────────────────────────────────────────────
+    def _debug_states(
+        self, raw: str, states: List[Tuple[int, int, str]]
+    ) -> None:
+        """Muestra tokens sin parsear y piezas faltantes clave."""
+        tokens = [t.strip() for t in raw.split(",") if t.strip()]
+        parsed_tokens = {f"{st}{tooth}{faces}" for st, tooth, faces in states}
+
+        not_parsed = [tok for tok in tokens if tok.replace(" ", "") not in parsed_tokens]
+        if not_parsed:
+            print("[DEBUG]   Tokens NO parseados:", not_parsed)
+
+        print("[DEBUG]   apply_batch_states:", states)
+
+        # dientes críticos esperados (48-45, 65-75) si el SP los trae
+        critical = {45, 46, 47, 48, 65, 75}
+        parsed_teeth = {tooth for _, tooth, _ in states}
+        missing = sorted(critical - parsed_teeth)
+        if missing:
+            print(f"[WARN]  No llegaron estados para piezas críticas: {missing}")
+
+    # ----------------------------------------------------------------
     def _on_estado_clicked(self, estado: str) -> None:
         self.odontogram_view.set_current_state(estado)
 

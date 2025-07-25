@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 """
+Modules/modelos_sin_imagenes.py
+
 Odontograma sin imágenes – versión optimizada
 · Filas centradas horizontalmente respecto al ancho máximo.
 · Espaciado vertical configurable con TOP_PADDING y BETWEEN_ROWS_EXTRA.
@@ -36,10 +38,15 @@ from Modules.utils import (
 # Paleta gráfica ---------------------------------------------------------------
 from Styles.style_models import (
     BLUE, YELLOW, WHITE, BLACK,
-    RED, DARK_GRAY, DARK_YELLOW,
+    RED, DARK_GRAY,
     BLUE_PEN, YELLOW_PEN, DOT_BLUE_PEN, BRIDGE_PEN,
     WHITE_BRUSH, BLUE_BRUSH, YELLOW_BRUSH, TRANSPARENT_BRUSH,
 )
+
+# ------------------------------------------------------------------ #
+# NUEVO: pincel reutilizable para obturación roja
+RED_BRUSH = QBrush(RED)
+# ------------------------------------------------------------------ #
 
 # Espaciado vertical -----------------------------------------------------------
 TOP_PADDING: int        = 10   # espacio antes de la primera fila
@@ -186,13 +193,14 @@ class ToothItem:
             * *_R → rojo (códigos 9-12)
             * *_B → azul (códigos 16-19)
         """
-        # ----- obturación completa --------------------------
-        if name == "Obturacion":
+        # ----- obturación / caries (misma figura, distinto color) -----
+        if name in ("Obturacion", "Caries"):
+            brush = RED_BRUSH if name == "Obturacion" else BLUE_BRUSH
             for face in self.faces.values():
-                face.setBrush(BLUE_BRUSH)
+                face.setBrush(brush)
             return
 
-        # ----- prótesis (texto + color) ---------------------
+        # ----- prótesis (texto + color) ------------------------------
         if name in PROTESIS_SHORT:
             self._set_protesis_text(PROTESIS_SHORT[name])
             if name.endswith("_B"):
@@ -201,7 +209,7 @@ class ToothItem:
                 self.protesis.setDefaultTextColor(RED)
             return
 
-        # ----- resto de estados -----------------------------
+        # ----- resto de estados --------------------------------------
         handlers: Dict[str, Callable[[], None]] = {
             "Ninguno":              self.reset,
             "Agenesia":             lambda: self._shade_all(DARK_GRAY),
@@ -213,7 +221,6 @@ class ToothItem:
             "Supernumerario":       lambda: self._toggle_super(True),
             "Puente":               self._flag_bridge,
             "Extracción":           self._apply_extraccion,
-            "Caries":               lambda: self.faces["center"].setBrush(QBrush(DARK_YELLOW)),
         }
         func = handlers.get(name)
         if func:
@@ -226,12 +233,17 @@ class ToothItem:
         self._set_lines(True)
         self._shade_all(RED)
 
-    def apply_obturation_faces(self, faces: str) -> None:
-        print(f"[DEBUG]    ToothItem {self.num}: obturación caras='{faces}'")
+    def apply_obturation_faces(self, faces: str, state_name: str) -> None:
+        """
+        Rellena selectivamente caras O, V, M… con el color
+        correspondiente al estado ('Obturacion' = rojo, 'Caries' = azul).
+        """
+        brush = RED_BRUSH if state_name == "Obturacion" else BLUE_BRUSH
+        print(f"[DEBUG]    ToothItem {self.num}: obturación ({state_name}) caras='{faces}'")
         for c in faces.upper():
             name = FACE_MAP.get(c)
             if name:
-                self.faces[name].setBrush(BLUE_BRUSH)
+                self.faces[name].setBrush(brush)
 
     def reset(self) -> None:
         self._shade_all(WHITE)
@@ -353,18 +365,18 @@ class OdontogramView(QGraphicsView):
                 continue
             per_tooth[str(dnum)].append((name, faces))
 
-        # reset
+        # reset piezas
         for row in self.dientes:
             for t in row:
                 t.reset()
 
-        # aplica
+        # aplica estados por pieza
         for num, lst in per_tooth.items():
             t = self.find_tooth(num)
             assert t is not None
             for name, faces in lst:
-                if name == "Obturacion" and faces:
-                    t.apply_obturation_faces(faces)
+                if name in ("Obturacion", "Caries") and faces:
+                    t.apply_obturation_faces(faces, name)
                 else:
                     t.apply_state(name)
         self.update_bridges()
