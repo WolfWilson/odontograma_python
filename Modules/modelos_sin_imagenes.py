@@ -46,6 +46,7 @@ from Styles.style_models import (
 # ------------------------------------------------------------------ #
 # NUEVO: pincel reutilizable para obturación roja
 RED_BRUSH = QBrush(RED)
+RED_BRIDGE_PEN  = QPen(RED, 3)
 # ------------------------------------------------------------------ #
 
 # Espaciado vertical -----------------------------------------------------------
@@ -331,7 +332,7 @@ class OdontogramView(QGraphicsView):
     def set_current_state(self, name: str) -> None:
         self.current_state = name
 
-    # ------------------------------------------------------
+    # ------------------------------------------------------ PUENTE
     def update_bridges(self) -> None:
         for ln in self.bridge_lines:
             self._scene.removeItem(ln)
@@ -346,7 +347,7 @@ class OdontogramView(QGraphicsView):
                     y_line = rect.center().y() + tooth.size / 2 - 10
                     x_left, x_right = rect.left() - 5, rect.right() + 5
                     ln = cast(QGraphicsLineItem,
-                              self._scene.addLine(x_left, y_line, x_right, y_line, BRIDGE_PEN))
+                              self._scene.addLine(x_left, y_line, x_right, y_line, RED_BRIDGE_PEN))
                     ln.setZValue(0)
                     self.bridge_lines.append(ln)
 
