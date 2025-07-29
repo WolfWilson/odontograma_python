@@ -43,10 +43,11 @@ from Styles.style_models import (
     WHITE_BRUSH, BLUE_BRUSH, YELLOW_BRUSH, TRANSPARENT_BRUSH,
 )
 
-# ------------------------------------------------------------------ #
-# NUEVO: pincel reutilizable para obturación roja
-RED_BRUSH = QBrush(RED)
-RED_BRIDGE_PEN  = QPen(RED, 3)
+# ---------- pinceles / bolígrafos auxiliares -------------------
+RED_BRUSH        = QBrush(RED)
+RED_PEN          = QPen(RED, 2)                       # trazos continuos rojos
+DOT_RED_PEN      = QPen(RED, 2, Qt.DotLine)           # type: ignore[attr-defined]
+RED_BRIDGE_PEN   = QPen(RED, 3)                       # puente rojo
 # ------------------------------------------------------------------ #
 
 # Espaciado vertical -----------------------------------------------------------
@@ -130,47 +131,54 @@ class ToothItem:
 
     # ----------------------- overlays ----------------------
     def _create_overlays(self, x: int, y: int, s: int) -> None:
+        # cruces (por defecto azules, se cambiarán a rojo según estado)
         ln1 = cast(QGraphicsLineItem, self._scene.addLine(x, y, x + s, y + s, BLUE_PEN))
         ln2 = cast(QGraphicsLineItem, self._scene.addLine(x + s, y, x, y + s, BLUE_PEN))
         self.cross_lines: List[QGraphicsLineItem] = [ln1, ln2]
         for ln in self.cross_lines:
             ln.setVisible(False)
 
+        # corona → rojo
         r = s * 1.1
         self.corona = cast(
             QGraphicsEllipseItem,
             self._scene.addEllipse(
-                x + s / 2 - r / 2, y + s / 2 - r / 2, r, r, BLUE_PEN, TRANSPARENT_BRUSH
+                x + s / 2 - r / 2, y + s / 2 - r / 2, r, r, RED_PEN, TRANSPARENT_BRUSH
             ),
         )
         self.corona.setVisible(False)
 
+        # implante → texto rojo
         self.implante = cast(QGraphicsTextItem, self._scene.addText("IMP", QFont("Arial", 10, QFont.Bold)))
-        self.implante.setDefaultTextColor(BLACK)
+        self.implante.setDefaultTextColor(RED)
         self.implante.setPos(x + 5, y + 5)
         self.implante.setVisible(False)
 
+        # selladores → círculo rojo sólido
         sr = s * 0.2
         self.sellador = cast(
             QGraphicsEllipseItem,
             self._scene.addEllipse(
-                x + s / 2 - sr / 2, y + s / 2 - sr / 2, sr, sr, YELLOW_PEN, YELLOW_BRUSH
+                x + s / 2 - sr / 2, y + s / 2 - sr / 2, sr, sr, RED_PEN, RED_BRUSH
             ),
         )
         self.sellador.setVisible(False)
 
+        # ausente fisiológico → circunferencia roja punteada
         self.ausente_fisio = cast(
             QGraphicsEllipseItem,
             self._scene.addEllipse(
-                x + s / 2 - s / 2, y + s / 2 - s / 2, s, s, DOT_BLUE_PEN, TRANSPARENT_BRUSH
+                x + s / 2 - s / 2, y + s / 2 - s / 2, s, s, DOT_RED_PEN, TRANSPARENT_BRUSH
             ),
         )
         self.ausente_fisio.setVisible(False)
 
+        # prótesis (texto) – color se decide dinámicamente
         self.protesis = cast(QGraphicsTextItem, self._scene.addText("", QFont("Arial", 12, QFont.Bold)))
         self.protesis.setDefaultTextColor(RED)
         self.protesis.setVisible(False)
 
+        # supernumerario (sin cambios)
         sup_r = s * 0.4
         cx, cy = x + s / 2 - sup_r / 2, y + s / 2 - sup_r / 2
         self.super_num_circ = cast(
@@ -210,11 +218,11 @@ class ToothItem:
                 self.protesis.setDefaultTextColor(RED)
             return
 
-        # ----- resto de estados --------------------------------------
+        # ----- resto de estados (colores rojos) ----------------------
         handlers: Dict[str, Callable[[], None]] = {
             "Ninguno":              self.reset,
             "Agenesia":             lambda: self._shade_all(DARK_GRAY),
-            "PD Ausente":           lambda: self._set_lines(True),
+            "PD Ausente":           lambda: self._set_lines(True, RED_PEN),
             "Corona":               lambda: self.corona.setVisible(True),
             "Implante":             lambda: self.implante.setVisible(True),
             "Selladores":           lambda: self.sellador.setVisible(True),
@@ -232,7 +240,7 @@ class ToothItem:
     # -------- utilidades internas de ToothItem -------------
     def _apply_extraccion(self) -> None:
         self._set_lines(True)
-        self._shade_all(RED)
+     
 
     def apply_obturation_faces(self, faces: str, state_name: str) -> None:
         """
@@ -263,9 +271,17 @@ class ToothItem:
             face.setPen(QPen(BLACK, 2))
             face._selected = False
 
-    def _set_lines(self, visible: bool) -> None:
+    # ------------------------ cambios aquí ---------------------------
+    def _set_lines(self, visible: bool, pen: QPen | None = None) -> None:
+        """
+        Muestra/oculta las líneas en cruz.
+        Si se pasa un QPen, actualiza color/grosor.
+        """
         for ln in self.cross_lines:
+            if pen is not None:
+                ln.setPen(pen)
             ln.setVisible(visible)
+    # ----------------------------------------------------------------
 
     def _set_protesis_text(self, label: str) -> None:
         self.protesis.setPlainText(label)

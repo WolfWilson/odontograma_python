@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!Modules/views.py
 # coding: utf-8
 """
 views.py – Ventana principal del Odontograma
