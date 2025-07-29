@@ -38,6 +38,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Odontograma – Auditoría por Prestador")
 
+        #---flag de solo lectura-----
+        self.locked = bool(data_dict.get("locked", False))
+
         # --- estado interno ---
         self.current_idboca: int | None = None
         self.raw_states: List[Tuple[int, int, str]] = []
@@ -48,7 +51,7 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(QIcon(ico))
 
         # --- vista odontograma ---
-        self.odontogram_view = OdontogramView(locked=False)
+        self.odontogram_view = OdontogramView(locked=self.locked)
 
         # --- encabezado ---
         self._build_header()

@@ -23,6 +23,7 @@ def build_data_dict(args, bocas_rows):
         "colegio":         args.colegio,
         "efectorCodFact":  args.efectorCodFact,
         "filas_bocas":     bocas_rows,
+        "locked": True,
     }
 
 def main() -> None:

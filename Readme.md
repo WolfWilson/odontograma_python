@@ -108,6 +108,11 @@ EJEMPLO DE LA VISUALIZACIÓN:
 
 [![odontograma-SIN-TITULAR-SIN-FECHA.png](https://i.postimg.cc/xdgLwCHD/odontograma-SIN-TITULAR-SIN-FECHA.png)](https://postimg.cc/5HYHvfnn)
 
+## Pyinstaller
+```dash
+pyinstaller --% --onefile --noconsole --distpath "\\fs01\Aut_Dentisteria\exe test" --add-data "src;src" --collect-submodules Modules --collect-submodules Utils --collect-submodules Styles odontograma.py
+```
+
 ##  🤝 Contribuciones 
 
 ¡Las contribuciones son bienvenidas!
@@ -119,6 +124,7 @@ Si quieres mejorar este proyecto:
 
 ## 📜 Licencia 
 Este proyecto está bajo la Licencia MIT, lo que significa que puedes usarlo y modificarlo libremente.
+
 
 
 📌 Autor: Wilson Wolf / INSSSEP-CPI  
