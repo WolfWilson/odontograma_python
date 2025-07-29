@@ -48,6 +48,8 @@ RED_BRUSH        = QBrush(RED)
 RED_PEN          = QPen(RED, 2)                       # trazos continuos rojos
 DOT_RED_PEN      = QPen(RED, 2, Qt.DotLine)           # type: ignore[attr-defined]
 RED_BRIDGE_PEN   = QPen(RED, 3)                       # puente rojo
+PD_PEN = QPen(RED, 4)            # 4 px; ajusta a gusto para PD Ausente
+
 # ------------------------------------------------------------------ #
 
 # Espaciado vertical -----------------------------------------------------------
@@ -222,7 +224,7 @@ class ToothItem:
         handlers: Dict[str, Callable[[], None]] = {
             "Ninguno":              self.reset,
             "Agenesia":             lambda: self._shade_all(DARK_GRAY),
-            "PD Ausente":           lambda: self._set_lines(True, RED_PEN),
+            "PD Ausente":           lambda: self._set_lines(True, width=4),
             "Corona":               lambda: self.corona.setVisible(True),
             "Implante":             lambda: self.implante.setVisible(True),
             "Selladores":           lambda: self.sellador.setVisible(True),
@@ -272,15 +274,19 @@ class ToothItem:
             face._selected = False
 
     # ------------------------ cambios aquí ---------------------------
-    def _set_lines(self, visible: bool, pen: QPen | None = None) -> None:
+    def _set_lines(self, visible: bool, *, width: int | None = None) -> None:
         """
-        Muestra/oculta las líneas en cruz.
-        Si se pasa un QPen, actualiza color/grosor.
+        Muestra/oculta la equis de líneas cruzadas.
+        • width: si se da, cambia temporalmente el grosor del QPen.
         """
-        for ln in self.cross_lines:
-            if pen is not None:
+        if width is not None:
+            pen = QPen(RED, width)          # color ya es rojo
+            for ln in self.cross_lines:
                 ln.setPen(pen)
+
+        for ln in self.cross_lines:
             ln.setVisible(visible)
+
     # ----------------------------------------------------------------
 
     def _set_protesis_text(self, label: str) -> None:

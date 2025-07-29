@@ -1,4 +1,4 @@
-#!Modules/views.py
+#!/usr/bin/env python
 # coding: utf-8
 """
 views.py – Ventana principal del Odontograma
@@ -7,30 +7,18 @@ views.py – Ventana principal del Odontograma
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Mapping, Tuple, cast
+from typing import Any, Dict, List, Mapping, cast
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QFont, QIcon
 from PyQt5.QtWidgets import (
-    QFileDialog,
-    QFrame,
-    QGraphicsDropShadowEffect,
-    QGridLayout,
-    QHBoxLayout,
-    QLabel,
-    QMainWindow,
-    QMessageBox,
-    QPushButton,
-    QTabWidget,
-    QTableWidget,
-    QTableWidgetItem,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
+    QFileDialog, QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout,
+    QLabel, QMainWindow, QMessageBox, QPushButton, QTabWidget, QTableWidget,
+    QTableWidgetItem, QToolButton, QVBoxLayout, QWidget,
 )
 
 from Modules.conexion_db import get_bocas_consulta_efector, get_odontograma_data
-from Modules.menu_estados import MenuEstados
+from Modules.menu_estados import MenuEstados, build_icon_dict
 from Modules.modelos_sin_imagenes import OdontogramView
 from Modules.utils import resource_path
 from Utils.sp_data_parse import parse_dientes_sp
@@ -38,65 +26,41 @@ from Utils.actions import capture_odontogram, make_refresh_button
 
 
 class MainWindow(QMainWindow):
-    """Ventana principal de la aplicación."""
+    """Ventana principal."""
 
     # ------------------------------------------------------------------
-    def __init__(self, data_dict: Mapping[str, Any]) -> None:   # ← Mapping, Any
+    def __init__(self, data_dict: Mapping[str, Any]) -> None:
         super().__init__()
         self.setWindowTitle("Odontograma – Auditoría por Prestador")
-
-        # ---------- Estado interno ----------
         self.current_idboca: int | None = None
 
-        # ---------- Icono ----------
-        icon_path = resource_path("src/icon.png")
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
+        # ---------- icono ----------
+        icon_file = resource_path("src/icon.png")
+        if os.path.exists(icon_file):
+            self.setWindowIcon(QIcon(icon_file))
 
-        # ---------- Vista odontograma ----------
+        # ---------- vista principal ----------
         self.odontogram_view = OdontogramView(locked=False)
 
-        # ---------- Labels encabezado ----------
-        self.lblCredValue = self._value_label()
-        self.lblAfilValue = self._value_label()
-        self.lblPrestValue = self._value_label()
-        self.lblFechaValue = self._value_label()
-        self.lblObsValue = self._value_label(word_wrap=True)
+        # ---------- encabezado ----------
+        self._build_header()
 
-        header = self._build_header()
+        # ---------- datos de bocas ----------
+        filas_bocas = self._get_bocas(data_dict)
 
-        # ---------- Bocas disponibles ----------
-        filas_bocas_raw = data_dict.get("filas_bocas", [])
-        filas_bocas: List[Dict[str, str]] = (
-            cast(List[Dict[str, str]], filas_bocas_raw) if isinstance(filas_bocas_raw, list) else []
-        )
-
-        if not filas_bocas:
-            try:
-                filas_bocas = get_bocas_consulta_efector(
-                    idafiliado=str(data_dict.get("credencial", "")),
-                    colegio=int(str(data_dict.get("colegio", "0")) or 0),
-                    codfact=int(str(data_dict.get("efectorCodFact", "0")) or 0),
-                    fecha=str(data_dict.get("fecha", "")),
-                )
-            except Exception as exc:
-                print("[WARN] No se pudo obtener bocas:", exc)
-
-        # ---------- Pestañas ----------
+        # ---------- pestañas ----------
         self.tabs = self._build_tabs(filas_bocas)
 
-        # ---------- Botones ----------
-        self.btn_download = QPushButton("DESCARGAR")
-        self.btn_download.clicked.connect(self._do_download)
-
-        self.btn_refresh: QToolButton = make_refresh_button(on_click=self._do_refresh)
-
+        # ---------- botones inferiores ----------
         btn_bar = QHBoxLayout()
-        btn_bar.addWidget(self.btn_download)
-        btn_bar.addWidget(self.btn_refresh)
+        btn_download = QPushButton("DESCARGAR")
+        btn_download.clicked.connect(self._do_download)
+        btn_refresh: QToolButton = make_refresh_button(on_click=self._do_refresh)
+        btn_bar.addWidget(btn_download)
+        btn_bar.addWidget(btn_refresh)
         btn_bar.addStretch()
 
-        # ---------- Layout general ----------
+        # ---------- layout completo ----------
         sidebar = QVBoxLayout()
         sidebar.addWidget(self.tabs)
         sidebar.addLayout(btn_bar)
@@ -110,7 +74,7 @@ class MainWindow(QMainWindow):
         body.addLayout(odo_layout, 1)
 
         root = QVBoxLayout()
-        root.addWidget(header)
+        root.addWidget(self.header_frame)
         root.addLayout(body)
 
         container = QWidget()
@@ -118,102 +82,114 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
         self.resize(1300, 800)
 
-        # ---------- Selección inicial ----------
+        # selección inicial
         if filas_bocas:
             self._on_boca_seleccionada(0, 0)
 
     # =================================================================
-    # --------------------------- HEADER -------------------------------
+    # ---------------------- HEADER -----------------------------------
     # =================================================================
-    def _build_header(self) -> QFrame:
+    def _build_header(self) -> None:
+        """Crea self.header_frame y etiquetas."""
+        self.lblCredValue = self._value_lbl()
+        self.lblAfilValue = self._value_lbl()
+        self.lblPrestValue = self._value_lbl()
+        self.lblFechaValue = self._value_lbl()
+        self.lblObsValue = self._value_lbl(word_wrap=True)
+
         hdr = QFrame()
         hdr.setObjectName("headerFrame")
         hdr.setMinimumHeight(100)
+        self.header_frame = hdr
 
-        grid = QGridLayout()
-        grid.setSpacing(12)
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 3)
-        grid.setColumnStretch(2, 1)
-        grid.setColumnStretch(3, 3)
+        g = QGridLayout()
+        g.setSpacing(12)
+        for col, stretch in enumerate([1, 3, 1, 3]):
+            g.setColumnStretch(col, stretch)
 
-        font_bold = QFont("Segoe UI", 12, QFont.Bold)
+        bold = QFont("Segoe UI", 12, QFont.Bold)
+        g.addWidget(self._key("CREDENCIAL:", bold), 0, 0)
+        g.addWidget(self.lblCredValue, 0, 1)
+        g.addWidget(self._key("AFILIADO:", bold), 0, 2)
+        g.addWidget(self.lblAfilValue, 0, 3)
 
-        grid.addWidget(self._key("CREDENCIAL:", font_bold), 0, 0)
-        grid.addWidget(self.lblCredValue, 0, 1)
-        grid.addWidget(self._key("AFILIADO:", font_bold), 0, 2)
-        grid.addWidget(self.lblAfilValue, 0, 3)
+        g.addWidget(self._key("PRESTADOR:", bold), 1, 0)
+        g.addWidget(self.lblPrestValue, 1, 1)
+        g.addWidget(self._key("FECHA:", bold), 1, 2)
+        g.addWidget(self.lblFechaValue, 1, 3)
 
-        grid.addWidget(self._key("PRESTADOR:", font_bold), 1, 0)
-        grid.addWidget(self.lblPrestValue, 1, 1)
-        grid.addWidget(self._key("FECHA:", font_bold), 1, 2)
-        grid.addWidget(self.lblFechaValue, 1, 3)
+        g.addWidget(self._key("OBSERVACIONES:", bold), 2, 0,
+                    alignment=Qt.AlignTop)  # type: ignore[attr-defined]
+        g.addWidget(self.lblObsValue, 2, 1, 1, 3)
 
-        grid.addWidget(self._key("OBSERVACIONES:", font_bold), 2, 0, Qt.AlignTop)  # type: ignore[attr-defined]
-        grid.addWidget(self.lblObsValue, 2, 1, 1, 3)
-
-        hdr.setLayout(grid)
-        return hdr
+        hdr.setLayout(g)
 
     def _key(self, text: str, font: QFont) -> QLabel:
         lbl = QLabel(text)
         lbl.setFont(font)
         lbl.setStyleSheet("color:white;")
-        self._add_shadow(lbl)
+        self._shadow(lbl)
         return lbl
 
-    def _value_label(self, *, word_wrap: bool = False) -> QLabel:
+    def _value_lbl(self, *, word_wrap: bool = False) -> QLabel:
         lbl = QLabel()
         lbl.setWordWrap(word_wrap)
         lbl.setStyleSheet("color:black; font-weight:bold; background:transparent;")
         return lbl
 
-    def _add_shadow(self, lbl: QLabel) -> None:
-        shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(6)
-        shadow.setOffset(0, 0)
-        shadow.setColor(QColor(0, 0, 0, 180))
-        lbl.setGraphicsEffect(shadow)
+    def _shadow(self, lbl: QLabel) -> None:
+        sh = QGraphicsDropShadowEffect()
+        sh.setBlurRadius(6)
+        sh.setOffset(0, 0)
+        sh.setColor(QColor(0, 0, 0, 180))
+        lbl.setGraphicsEffect(sh)
 
     # =================================================================
-    # ---------------------------- TABS -------------------------------
+    # -------------------------- TABS ---------------------------------
     # =================================================================
     def _build_tabs(self, filas_bocas: List[Dict[str, str]]) -> QTabWidget:
         tabs = QTabWidget()
         tabs.setTabPosition(QTabWidget.West)
 
-        # ---- Bocas disponibles --------------------------------------
-        t_bocas = QWidget()
-        self._build_tab_bocas(t_bocas, filas_bocas)
-        tabs.addTab(t_bocas, "Bocas Disponibles")
+        # bocas
+        w_bocas = QWidget()
+        self._fill_tab_bocas(w_bocas, filas_bocas)
+        tabs.addTab(w_bocas, "Bocas Disponibles")
 
-        # ---- Prestaciones existentes --------------------------------
+        # EXISTENTES (prótesis rojas)
+        icon_exist = build_icon_dict(
+            prosthesis_suffix="R",
+            exclude={"Supernumerario", "Caries", "Extracción"},
+        )
         tabs.addTab(
-            MenuEstados(self._on_estado_clicked, locked=False, title="Prestaciones Existentes"),
+            MenuEstados(self._on_estado_clicked,
+                        locked=False,
+                        title="Prestaciones Existentes",
+                        icon_dict=icon_exist),
             "Pres Existentes",
         )
 
-        # ---- Prestaciones requeridas --------------------------------
+        # REQUERIDAS (prótesis azules, sufijo A) – sólo prótesis + caries/extracción
+        icon_req = build_icon_dict(
+            prosthesis_suffix="A",
+            include=[
+                "Caries", "Extracción",
+                "Prótesis Removible SUPERIOR", "Prótesis Removible INFERIOR",
+                "Prótesis Completa SUPERIOR",  "Prótesis Completa INFERIOR",
+            ],
+        )
         tabs.addTab(
-            MenuEstados(
-                self._on_estado_clicked,
-                locked=False,
-                title="Prestaciones Requeridas",
-                estados_personalizados={
-                    "Caries": "icon_cariesR.png",
-                    "Extracción": "icon_extraccionR.png",
-                    "Prótesis Removible SUPERIOR": "icon_prsR.png",
-                    "Prótesis Removible INFERIOR": "icon_priR.png",
-                    "Prótesis Completa SUPERIOR": "icon_pcsR.png",
-                    "Prótesis Completa INFERIOR": "icon_pciR.png",
-                },
-            ),
+            MenuEstados(self._on_estado_clicked,
+                        locked=False,
+                        title="Prestaciones Requeridas",
+                        icon_dict=icon_req),
             "Prest Requeridas",
         )
         return tabs
 
-    def _build_tab_bocas(self, container: QWidget, filas: List[Dict[str, str]]) -> None:
-        layout = QVBoxLayout()
+    # ---------------------- tabla de bocas ---------------------------
+    def _fill_tab_bocas(self, container: QWidget, filas: List[Dict[str, str]]) -> None:
+        layout = QVBoxLayout(container)
         self.tableBocas = QTableWidget()
         self.tableBocas.setColumnCount(3)
         self.tableBocas.setHorizontalHeaderLabels(
@@ -221,7 +197,6 @@ class MainWindow(QMainWindow):
         )
         self.tableBocas.cellClicked.connect(self._on_boca_seleccionada)
         layout.addWidget(self.tableBocas)
-        container.setLayout(layout)
 
         self.tableBocas.setRowCount(len(filas))
         for i, d in enumerate(filas):
@@ -231,6 +206,28 @@ class MainWindow(QMainWindow):
         self.tableBocas.setColumnHidden(0, True)
 
     # =================================================================
+    # ------------------------ DATA helpers ---------------------------
+    # =================================================================
+    def _get_bocas(self, data: Mapping[str, Any]) -> List[Dict[str, str]]:
+        filas_raw = data.get("filas_bocas", [])
+        filas: List[Dict[str, str]] = (
+            cast(List[Dict[str, str]], filas_raw) if isinstance(filas_raw, list) else []
+        )
+        if filas:
+            return filas
+
+        try:
+            return get_bocas_consulta_efector(
+                idafiliado=str(data.get("credencial", "")),
+                colegio=int(str(data.get("colegio", "0")) or 0),
+                codfact=int(str(data.get("efectorCodFact", "0")) or 0),
+                fecha=str(data.get("fecha", "")),
+            )
+        except Exception as exc:
+            print("[WARN] No se pudo obtener bocas:", exc)
+            return []
+
+    # =================================================================
     # ---------------------- EVENTOS / SLOTS --------------------------
     # =================================================================
     def _on_boca_seleccionada(self, row: int, _col: int) -> None:
@@ -238,52 +235,18 @@ class MainWindow(QMainWindow):
         if not (item and item.text().isdigit()):
             return
         self.current_idboca = int(item.text())
-        data = get_odontograma_data(self.current_idboca)
 
+        data = get_odontograma_data(self.current_idboca)
         self.lblCredValue.setText(str(data.get("credencial", "")))
         self.lblAfilValue.setText(str(data.get("afiliado", "")))
         self.lblPrestValue.setText(str(data.get("prestador", "")))
         self.lblFechaValue.setText(str(data.get("fecha", "")))
         self.lblObsValue.setText(str(data.get("observaciones", "")))
 
-        raw_dientes = str(data.get("dientes", ""))
-
-        # ------------------ DEBUG: antes de parsear ------------------
-        print("[DEBUG]   Raw string dientes:", raw_dientes)
-
-        # ------------------ Parseo centralizado ----------------------
-        states = parse_dientes_sp(raw_dientes)
-
-        # ------------------ DEBUG: después de parsear ----------------
-        self._debug_states(raw_dientes, states)
-
-        # ------------------ Aplicar al modelo ------------------------
+        states = parse_dientes_sp(str(data.get("dientes", "")))
         self.odontogram_view.apply_batch_states(states)
 
-    # ─────────────────────────────────────────────────────────────
-    # DEBUG helper
-    # ─────────────────────────────────────────────────────────────
-    def _debug_states(
-        self, raw: str, states: List[Tuple[int, int, str]]
-    ) -> None:
-        """Muestra tokens sin parsear y piezas faltantes clave."""
-        tokens = [t.strip() for t in raw.split(",") if t.strip()]
-        parsed_tokens = {f"{st}{tooth}{faces}" for st, tooth, faces in states}
-
-        not_parsed = [tok for tok in tokens if tok.replace(" ", "") not in parsed_tokens]
-        if not_parsed:
-            print("[DEBUG]   Tokens NO parseados:", not_parsed)
-
-        print("[DEBUG]   apply_batch_states:", states)
-
-        # dientes críticos esperados (48-45, 65-75) si el SP los trae
-        critical = {45, 46, 47, 48, 65, 75}
-        parsed_teeth = {tooth for _, tooth, _ in states}
-        missing = sorted(critical - parsed_teeth)
-        if missing:
-            print(f"[WARN]  No llegaron estados para piezas críticas: {missing}")
-
-    # ----------------------------------------------------------------
+    # -------------------------- callbacks ----------------------------
     def _on_estado_clicked(self, estado: str) -> None:
         self.odontogram_view.set_current_state(estado)
 
@@ -292,11 +255,9 @@ class MainWindow(QMainWindow):
         if not path:
             return
         try:
-            saved = capture_odontogram(
-                self.odontogram_view,
-                patient_name=self.lblAfilValue.text(),
-                captures_dir=path,
-            )
+            saved = capture_odontogram(self.odontogram_view,
+                                       patient_name=self.lblAfilValue.text(),
+                                       captures_dir=path)
             QMessageBox.information(self, "Captura guardada", saved)
         except Exception as ex:
             QMessageBox.warning(self, "Error", str(ex))
@@ -307,8 +268,7 @@ class MainWindow(QMainWindow):
         try:
             data = get_odontograma_data(self.current_idboca)
             self.odontogram_view.apply_batch_states(
-                parse_dientes_sp(str(data.get("dientes", "")))
-            )
+                parse_dientes_sp(str(data.get("dientes", ""))))
             QMessageBox.information(self, "Actualizado", "Odontograma refrescado.")
         except Exception as ex:
             QMessageBox.warning(self, "Error al refrescar", str(ex))
