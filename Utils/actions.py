@@ -24,11 +24,18 @@ from Modules.utils import resource_path
 # ----------------------------------------------------------------------
 # 1) Captura del odontograma a PNG
 # ----------------------------------------------------------------------
-def _default_filename(patient: str | None = None) -> str:
-    """Genera nombre 'odontograma_<paciente>_<YYYY-MM-DD>.png'."""
-    today = _dt.date.today().isoformat()
-    clean_name = patient.replace(" ", "_") if patient else "SIN_TITULAR"
-    return f"odontograma_{clean_name}_{today}.png"
+def _default_filename(tag: str | None = None) -> str:
+    """
+    Devuelve 'odontograma_<TAG>.png'.
+
+    • TAG suele venir como  "<credencial>_<dd/mm/aaaa>"
+      Se reemplazan espacios por "_" y "/" por "-".
+    """
+    if not tag:
+        tag = "SIN_TITULAR"
+    tag = tag.replace(" ", "_").replace("/", "-")
+    return f"odontograma_{tag}.png"
+
 
 
 def capture_odontogram(

@@ -6,20 +6,17 @@ views.py – Ventana principal del Odontograma
 · Menús de prestaciones delegados a Modules.menubox_prest
 · Filtro radial:   Todos / Existentes / Requeridas
 """
-
 from __future__ import annotations
-
 import os
 from typing import Any, Dict, List, Mapping, Tuple, cast
-
-from PyQt5.QtCore    import Qt
+from PyQt5.QtCore    import Qt, QSize
 from PyQt5.QtGui     import QColor, QFont, QIcon
 from PyQt5.QtWidgets import (
     QFileDialog, QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout,
     QLabel, QMainWindow, QMessageBox, QPushButton, QTabWidget, QTableWidget,
-    QTableWidgetItem, QVBoxLayout, QWidget, QRadioButton, QButtonGroup,
+    QTableWidgetItem, QVBoxLayout, QWidget, QRadioButton, QButtonGroup,QToolButton,
 )
-
+from typing import cast
 from Modules.conexion_db          import get_bocas_consulta_efector, get_odontograma_data
 from Modules.menubox_prest        import (
     get_menu_existentes, get_menu_requeridas, REQUERIDAS_FULL_SET,
@@ -28,7 +25,6 @@ from Modules.modelos_sin_imagenes import OdontogramView
 from Modules.utils                import resource_path, ESTADOS_POR_NUM
 from Utils.sp_data_parse          import parse_dientes_sp
 from Utils.actions                import capture_odontogram   # ← refresh eliminado
-
 
 # ════════════════════════════════════════════════════════════
 class MainWindow(QMainWindow):
@@ -72,24 +68,34 @@ class MainWindow(QMainWindow):
         # --- radio-buttons de filtro ---
         self.grp_filtro = self._build_filter_radios()
 
-        # --- botón descargar  (refresh oculto) ---
+        # ─────────── BOTÓN DESCARGAR ───────────
         btn_download = QPushButton("DESCARGAR")
+        btn_download.setObjectName("btnDescargar")      # para el CSS
         btn_download.clicked.connect(self._do_download)
-        btn_bar = QHBoxLayout()
-        btn_bar.addWidget(btn_download)
-        btn_bar.addStretch()
 
-        # --- sidebar (radios + tabs + botón) ---
+        # ─────────── CONTENEDOR ODONTOGRAMA + BOTÓN ───────────
+        odo_box = QVBoxLayout()
+        odo_box.addWidget(self.odontogram_view, 1)      # odontograma (expande)
+        odo_box.addStretch()                            # empuja el botón abajo
+        odo_box.addWidget(
+            btn_download, 0,
+            alignment=cast(Qt.Alignment,
+                                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
+        )
+
+        odo_container = QWidget()
+        odo_container.setLayout(odo_box)
+
+        # ─────────── SIDEBAR (radios + tabs) ───────────
         sidebar = QVBoxLayout()
         sidebar.addWidget(self.grp_filtro)
         sidebar.addWidget(self.tabs)
-        sidebar.addLayout(btn_bar)
         sidebar.addStretch()
 
-        # --- layout principal ---
+        # ─────────── LAYOUT PRINCIPAL ───────────
         body = QHBoxLayout()
         body.addLayout(sidebar, 0)
-        body.addWidget(self.odontogram_view, 1)
+        body.addWidget(odo_container, 1)                # ← usa el nuevo contenedor
 
         root = QVBoxLayout()
         root.addWidget(self.header_frame)
@@ -98,10 +104,13 @@ class MainWindow(QMainWindow):
         container = QWidget()
         container.setLayout(root)
         self.setCentralWidget(container)
-        self.resize(1300, 800)
+
+        # ventana un poco más compacta (ajusta a gusto)
+        self.resize(1280, 640)
 
         if filas_bocas:
             self._on_boca_seleccionada(0, 0)
+
 
     # ───────────────────────── HEADER ─────────────────────────
     def _build_header(self) -> None:
@@ -154,16 +163,31 @@ class MainWindow(QMainWindow):
 
     # ────────────────────────── TABS ─────────────────────────
     def _build_tabs(self, filas_bocas: List[Dict[str, str]]) -> QTabWidget:
-        tabs = QTabWidget(); tabs.setTabPosition(QTabWidget.West)
 
-        # --- bocas disponibles ---
+        tabs = QTabWidget()
+        tabs.setTabPosition(QTabWidget.West)
+
+        # ─── Bocas disponibles ───
         w_bocas = QWidget()
         self._fill_tab_bocas(w_bocas, filas_bocas)
         tabs.addTab(w_bocas, "Bocas Disponibles")
 
-        # --- prestaciones ---
-        tabs.addTab(get_menu_existentes(self._on_estado_clicked), "Pres Existentes")
-        tabs.addTab(get_menu_requeridas(self._on_estado_clicked), "Prest Requeridas")
+        # ─── Prestaciones EXISTENTES ───
+        menu_ex = get_menu_existentes(self._on_estado_clicked)
+        tabs.addTab(menu_ex, "Pres Existentes")
+
+        # ─── Prestaciones REQUERIDAS ───
+        menu_req = get_menu_requeridas(self._on_estado_clicked)
+
+        # Aquí puedes personalizar **todos** los botones del menú
+        for btn in menu_req.findChildren(QToolButton):
+            btn.setIconSize(QSize(25, 25))              # ⇦ 1) tamaño más chico
+            # ejemplo para cambiar el ícono si lo deseas:
+            # if btn.toolTip() == "Caries":
+            #     btn.setIcon(QIcon(resource_path("src/icon_caries_alt.png")))
+
+        tabs.addTab(menu_req, "Prest Requeridas")
+
         return tabs
 
     # ───────────────────── FILTER RADIOS ─────────────────────
@@ -261,21 +285,31 @@ class MainWindow(QMainWindow):
             [s for s in self.raw_states if flt(s[0])]
         )
 
-    # ----- CALLBACK estado clic -----
+    # ───────────────────── CALLBACK estado clic ─────────────────────
     def _on_estado_clicked(self, estado: str) -> None:
+        """
+        Recibe el nombre del estado que se hace clic en los menús de
+        prestaciones y lo envía a la vista de odontograma.
+        """
         self.odontogram_view.set_current_state(estado)
+    
 
-    # ----- botón descarga -----
+    # ----- CALLBACK estado clic -----
     def _do_download(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta")
         if not path:
             return
         try:
+            cred  = self.lblCredValue.text()
+            fecha = self.lblFechaValue.text()      # dd/mm/aaaa
+            tag   = f"{cred}_{fecha}"              # «12345678_01/02/2025»
+
             saved = capture_odontogram(
                 self.odontogram_view,
-                patient_name=self.lblAfilValue.text(),
+                patient_name=tag,                  # ← nuevo
                 captures_dir=path,
             )
             QMessageBox.information(self, "Captura guardada", saved)
         except Exception as ex:
             QMessageBox.warning(self, "Error", str(ex))
+

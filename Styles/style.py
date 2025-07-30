@@ -172,22 +172,26 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
         }}
 
         
-        QPushButton#btnDescargar {{
-        background-color: #4CAF50;         /* Verde moderno */
-        color: black;                      /* Texto blanco */
-        font-weight: ;
-        border: 1px solid #ffffff;
-        border-radius: 6px;
-        padding: 8px 16px;
-        font-size: 11pt;
-        min-width: 100px;
+        /* ══ Botón DESCARGAR moderno ══ */
+        #btnDescargar {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #2de47f, stop:1 #1fbe63);
+        color: white;
+        font-weight: bold;
+        padding: 8px 24px;
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.25);
         }}
-        QPushButton#btnDescargar:hover {{
-        background-color: #ffffff;
+        #btnDescargar:hover {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #29cf75, stop:1 #19a75b);
         }}
-        QPushButton#btnDescargar:pressed {{
-         background-color: #ffffff;
+        #btnDescargar:pressed {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #1fb15e, stop:1 #148c49);
         }}
+
         
         /* === Encabezado personalizado === */
         QFrame#headerFrame {{
@@ -238,6 +242,13 @@ QScrollBar::add-page {{
 /* ——— Ejemplo para afectar solo barras de tablas ———
 QTableWidget QScrollBar {{ … }}
 ———————————————————————————————————————————— */
+
+/* Íconos más chicos solo en la pestaña “Prest Requeridas”
+   (3.ª pestaña contando desde 0) */
+QTabWidget::pane > QWidget:nth-child(3) QToolButton {{
+    icon-size: 40px 40px;
+}}
+
 
     """)
 
