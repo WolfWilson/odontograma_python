@@ -25,7 +25,7 @@ from Modules.modelos_sin_imagenes import OdontogramView
 from Modules.utils                import resource_path, ESTADOS_POR_NUM
 from Utils.sp_data_parse          import parse_dientes_sp
 from Utils.actions                import capture_odontogram   # ← refresh eliminado
-
+from Utils.center_window import center_on_screen   # ← NUEVO
 # ════════════════════════════════════════════════════════════
 class MainWindow(QMainWindow):
     """Ventana principal con odontograma + filtros de prestaciones."""
@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
 
         # --- tabs de estados ---
         self.tabs = self._build_tabs(filas_bocas)
-
+        self.tabs.setFixedWidth(310) 
         # --- radio-buttons de filtro ---
         self.grp_filtro = self._build_filter_radios()
 
@@ -106,7 +106,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
 
         # ventana un poco más compacta (ajusta a gusto)
-        self.resize(1280, 640)
+        self.resize(1260, 640)
 
         if filas_bocas:
             self._on_boca_seleccionada(0, 0)
@@ -143,6 +143,12 @@ class MainWindow(QMainWindow):
             2, 0, alignment=Qt.AlignmentFlag.AlignTop)
         g.addWidget(self.lblObsValue, 2, 1, 1, 3)
         hdr.setLayout(g)
+    # ───────────────────── override de showEvent ───────────────────
+    def showEvent(self, event) -> None:             # type: ignore[override]
+        super().showEvent(event)
+        if not getattr(self, "_centered", False):   # solo la primera vez
+            center_on_screen(self)
+            self._centered = True
 
     # helpers de header -------------------------------------------------
     def _key(self, txt: str, f: QFont) -> QLabel:
