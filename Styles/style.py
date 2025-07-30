@@ -42,19 +42,29 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
     palette.setColor(QPalette.HighlightedText, QColor("white"))
     app.setPalette(palette)
 
-    # 3) StyleSheet global --------------------------------------------------
+    # 3) Fondo global (mosaico o degradado)
     bg_path = resource_path("src/background.jpg")
-    bg_rule = ""
     if os.path.exists(bg_path):
-        bg_path = bg_path.replace("\\", "/")
+        # ----- usar la imagen en mosaico -----
+        bg_path_css = bg_path.replace("\\", "/")
         bg_rule = f"""
             QMainWindow, QWidget {{
-                background-image: url("{bg_path}");
-                background-repeat: no-repeat;
-                background-position: center;
+                background-image: url("{bg_path_css}");
+                background-repeat: repeat;        /* se repite para cubrir */
+                background-position: 0 0;         /* ancla esquina superior-izq. */
             }}
         """
+    else:
+        # ----- degradado celeste claro → celeste más intenso -----
+        bg_rule = """
+            QMainWindow, QWidget {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                            stop:0 #dff3ff,   /* celeste muy claro */
+                                            stop:1 #b1e0ff);  /* celeste más intenso */
+            }
+        """
 
+    # 4) StyleSheet global  (se mantiene exactamente igual, salvo bg_rule al inicio)
     app.setStyleSheet(f"""
         /* === Fondo global === */
         {bg_rule}
@@ -86,9 +96,6 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
         }}
         /* Iconos grandes sólo en QToolButton */
         QToolButton {{ icon-size: 64px 64px; }}
-        
-        
-        
 
         /* === Vistas y tablas translúcidas === */
         QGraphicsView,
@@ -98,6 +105,7 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
             background-color: rgba(255, 255, 255, 0.8);
         }}
 
+        /* === Pestañas Verticales (QTabWidget) === */
         /* === Pestañas Verticales (QTabWidget) === */
 
         /* Define el borde izquierdo del panel, contra el que se "fusionan" las pestañas */
@@ -136,6 +144,8 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
         font-size: 9pt;
         font-weight: normal;
         }}
+
+        
 
         /* ─────────  Hover (solo si NO está seleccionada)  ───────── */
         QTabBar::tab:west:!selected:hover {{
@@ -191,4 +201,45 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
             font-size: 12px;      /* texto más grande */
             background: transparent;  /* ← elimina cualquier rectángulo de fondo */     
         }}
+
+        /* ═══════════  SCROLLBARS MODERNOS  ═══════════ */
+
+/* ——— Pista (fondo) ——— */
+QScrollBar:vertical, QScrollBar:horizontal {{
+    background: transparent;        /* deja ver el fondo/degradado */
+    border: none;
+    margin: 0px;
+}}
+
+/* ——— Handle (la parte que se mueve) ——— */
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{
+    background-color: rgba(0, 0, 0, 80);   /* gris translúcido */
+    min-height: 40px;                      /* alto mínimo */
+    min-width: 40px;                       /* ancho mínimo para horiz. */
+    border-radius: 8px;                    /* esquinas redondeadas */
+}}
+
+/* ——— Hover / presionado ——— */
+QScrollBar::handle:hover,
+QScrollBar::handle:pressed {{
+    background-color: rgba(0, 0, 0, 130);  /* un poco más oscuro */
+}}
+
+/* ——— Flechas y espacios extremos ocultos ——— */
+QScrollBar::sub-line,
+QScrollBar::add-line,
+QScrollBar::sub-page,
+QScrollBar::add-page {{
+    background: none;
+    width: 0px;
+    height: 0px;
+}}
+
+/* ——— Ejemplo para afectar solo barras de tablas ———
+QTableWidget QScrollBar {{ … }}
+———————————————————————————————————————————— */
+
     """)
+
+
+    

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#Modules/views.py
 # coding: utf-8
 """
 views.py – Ventana principal del Odontograma
@@ -52,7 +52,9 @@ class MainWindow(QMainWindow):
 
         # --- vista odontograma ---
         self.odontogram_view = OdontogramView(locked=self.locked)
-
+        self.odontogram_view.setStyleSheet("background: transparent;")
+        self.odontogram_view.setFrameShape(QFrame.NoFrame)  # Opcional
+        
         # --- encabezado ---
         self._build_header()
 
