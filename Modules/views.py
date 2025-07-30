@@ -188,10 +188,19 @@ class MainWindow(QMainWindow):
         self.tableBocas.setColumnCount(3)
         self.tableBocas.setHorizontalHeaderLabels(
             ["idBoca", "Fecha Carga", "Resumen Clínico"])
-        self.tableBocas.cellClicked.connect(self._on_boca_seleccionada)
-        # --- selección de FILAS completas ---
+
+        # ── selección de FILAS completas ───────────────────────
         self.tableBocas.setSelectionBehavior(QTableWidget.SelectRows)
         self.tableBocas.setSelectionMode(QTableWidget.SingleSelection)
+
+        # clic con el mouse
+        self.tableBocas.cellClicked.connect(self._on_boca_seleccionada)
+
+        # ⌨ flechas ↑ / ↓  → cambia celda actual
+        self.tableBocas.currentCellChanged.connect(
+            lambda row, col, *_: self._on_boca_seleccionada(row, col)
+        )
+
         lay.addWidget(self.tableBocas)
 
         self.tableBocas.setRowCount(len(filas))
@@ -200,6 +209,7 @@ class MainWindow(QMainWindow):
             self.tableBocas.setItem(i, 1, QTableWidgetItem(str(d.get("fechacarga", ""))))
             self.tableBocas.setItem(i, 2, QTableWidgetItem(str(d.get("resumenclinico", ""))))
         self.tableBocas.setColumnHidden(0, True)
+
 
     # ──────────────────── DATA HELPERS ───────────────────────
     def _get_bocas(self, data: Mapping[str, Any]) -> List[Dict[str, str]]:
