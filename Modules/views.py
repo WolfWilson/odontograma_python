@@ -1,8 +1,9 @@
-#Modules/views.py
+#!/usr/bin/env python
 # coding: utf-8
+#Modules/views.py
 """
 views.py – Ventana principal del Odontograma
-· Menús de prestaciones delegados a **Modules.menubox_prest**
+· Menús de prestaciones delegados a Modules.menubox_prest
 · Filtro radial:   Todos / Existentes / Requeridas
 """
 
@@ -26,7 +27,7 @@ from Modules.menubox_prest        import (
 from Modules.modelos_sin_imagenes import OdontogramView
 from Modules.utils                import resource_path, ESTADOS_POR_NUM
 from Utils.sp_data_parse          import parse_dientes_sp
-from Utils.actions                import capture_odontogram, make_refresh_button
+from Utils.actions                import capture_odontogram   # ← refresh eliminado
 
 
 # ════════════════════════════════════════════════════════════
@@ -38,7 +39,11 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Odontograma – Auditoría por Prestador")
 
-        #---flag de solo lectura-----
+        # ── SIN botones de minimizar / maximizar ──
+        self.setWindowFlag(Qt.WindowMinimizeButtonHint, False)  # type: ignore[attr-defined]
+        self.setWindowFlag(Qt.WindowMaximizeButtonHint, False)  # type: ignore[attr-defined]
+
+        # --- flag de solo-lectura ---
         self.locked = bool(data_dict.get("locked", False))
 
         # --- estado interno ---
@@ -53,8 +58,8 @@ class MainWindow(QMainWindow):
         # --- vista odontograma ---
         self.odontogram_view = OdontogramView(locked=self.locked)
         self.odontogram_view.setStyleSheet("background: transparent;")
-        self.odontogram_view.setFrameShape(QFrame.NoFrame)  # Opcional
-        
+        self.odontogram_view.setFrameShape(QFrame.NoFrame)   # opcional
+
         # --- encabezado ---
         self._build_header()
 
@@ -67,15 +72,14 @@ class MainWindow(QMainWindow):
         # --- radio-buttons de filtro ---
         self.grp_filtro = self._build_filter_radios()
 
-        # --- botón descargar + refresh ---
+        # --- botón descargar  (refresh oculto) ---
         btn_download = QPushButton("DESCARGAR")
         btn_download.clicked.connect(self._do_download)
         btn_bar = QHBoxLayout()
         btn_bar.addWidget(btn_download)
-        btn_bar.addWidget(make_refresh_button(on_click=self._do_refresh))
         btn_bar.addStretch()
 
-        # --- sidebar (radios + tabs + botones) ---
+        # --- sidebar (radios + tabs + botón) ---
         sidebar = QVBoxLayout()
         sidebar.addWidget(self.grp_filtro)
         sidebar.addWidget(self.tabs)
@@ -127,7 +131,7 @@ class MainWindow(QMainWindow):
         g.addWidget(self._key("FECHA:",      bold),    1, 2)
         g.addWidget(self.lblFechaValue,                1, 3)
         g.addWidget(self._key("OBSERVACIONES:", bold),
-                    2, 0, alignment=Qt.AlignTop)                       # type: ignore[arg-type]
+            2, 0, alignment=Qt.AlignmentFlag.AlignTop)
         g.addWidget(self.lblObsValue, 2, 1, 1, 3)
         hdr.setLayout(g)
 
@@ -185,6 +189,9 @@ class MainWindow(QMainWindow):
         self.tableBocas.setHorizontalHeaderLabels(
             ["idBoca", "Fecha Carga", "Resumen Clínico"])
         self.tableBocas.cellClicked.connect(self._on_boca_seleccionada)
+        # --- selección de FILAS completas ---
+        self.tableBocas.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tableBocas.setSelectionMode(QTableWidget.SingleSelection)
         lay.addWidget(self.tableBocas)
 
         self.tableBocas.setRowCount(len(filas))
@@ -248,7 +255,7 @@ class MainWindow(QMainWindow):
     def _on_estado_clicked(self, estado: str) -> None:
         self.odontogram_view.set_current_state(estado)
 
-    # ----- botones descarga / refresh -----
+    # ----- botón descarga -----
     def _do_download(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta")
         if not path:
@@ -262,14 +269,3 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Captura guardada", saved)
         except Exception as ex:
             QMessageBox.warning(self, "Error", str(ex))
-
-    def _do_refresh(self) -> None:
-        if self.current_idboca is None:
-            return
-        try:
-            data = get_odontograma_data(self.current_idboca)
-            self.raw_states = parse_dientes_sp(str(data.get("dientes", "")))
-            self._reapply_filter()
-            QMessageBox.information(self, "Actualizado", "Odontograma refrescado.")
-        except Exception as ex:
-            QMessageBox.warning(self, "Error al refrescar", str(ex))
