@@ -180,15 +180,13 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
         }}
 
         #btnDescargar:hover {{
-        background: rgba(0, 0, 0, 0.08);  /* leve realce al pasar el mouse    */
+        background: rgba(0, 0, 0, 0.10);  /* leve realce al pasar el mouse    */
         border-radius: 4px;
         }}
 
         #btnDescargar:pressed {{
-        background: rgba(0, 0, 0, 0.16);  /* un poco más oscuro al presionar  */
+        background: rgba(0, 0, 0, 0.18);  /* un poco más oscuro al presionar  */
         }}
-
-
         
         /* === Encabezado personalizado === */
         QFrame#headerFrame {{

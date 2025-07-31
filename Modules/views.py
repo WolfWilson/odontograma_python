@@ -91,7 +91,7 @@ class MainWindow(QMainWindow):
         ico_save = resource_path("src/save-file.png")
         if os.path.exists(ico_save):
             btn_download.setIcon(QIcon(ico_save))
-            btn_download.setIconSize(QSize(28, 28))
+            btn_download.setIconSize(QSize(35, 35))
         else:
             # fallback textual si falta el PNG
             btn_download.setText("💾")
