@@ -56,8 +56,6 @@ PD_PEN = QPen(RED, 4)            # 4 px; ajusta a gusto para PD Ausente
 TOP_PADDING: int        = 10   # espacio antes de la primera fila
 BETWEEN_ROWS_EXTRA: int = 60   # píxeles extra entre cada fila
 BOTTOM_PADDING: int     = 40   # (referencia) hueco al final de la escena
-
-
 # ─────────────────────────────────────────────────────────────
 # Cara individual de diente
 # ─────────────────────────────────────────────────────────────

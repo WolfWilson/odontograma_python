@@ -172,25 +172,22 @@ def apply_style(app) -> None:  # noqa: ANN001 – tipo QtApp depende del main
         }}
 
         
-        /* ══ Botón DESCARGAR moderno ══ */
+        /* ══ Botón DESCARGAR (icono) ══ */
         #btnDescargar {{
-        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-        stop:0 #2de47f, stop:1 #1fbe63);
-        color: white;
-        font-weight: bold;
-        padding: 8px 24px;
+        background: transparent;          /* sin fondo ni borde               */
         border: none;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+        padding: 0;                       /* el icono define el tamaño        */
         }}
+
         #btnDescargar:hover {{
-        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-        stop:0 #29cf75, stop:1 #19a75b);
+        background: rgba(0, 0, 0, 0.08);  /* leve realce al pasar el mouse    */
+        border-radius: 4px;
         }}
+
         #btnDescargar:pressed {{
-        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-        stop:0 #1fb15e, stop:1 #148c49);
+        background: rgba(0, 0, 0, 0.16);  /* un poco más oscuro al presionar  */
         }}
+
 
         
         /* === Encabezado personalizado === */

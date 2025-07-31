@@ -1,22 +1,25 @@
 #!/usr/bin/env python
 # coding: utf-8
-#Modules/views.py
+# Modules/views.py
 """
 views.py – Ventana principal del Odontograma
 · Menús de prestaciones delegados a Modules.menubox_prest
 · Filtro radial:   Todos / Existentes / Requeridas
 """
 from __future__ import annotations
+
 import os
 from typing import Any, Dict, List, Mapping, Tuple, cast
+
 from PyQt5.QtCore    import Qt, QSize
-from PyQt5.QtGui     import QColor, QFont, QIcon
+from PyQt5.QtGui     import QColor, QFont, QIcon, QShowEvent
 from PyQt5.QtWidgets import (
     QFileDialog, QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout,
-    QLabel, QMainWindow, QMessageBox, QPushButton, QTabWidget, QTableWidget,
-    QTableWidgetItem, QVBoxLayout, QWidget, QRadioButton, QButtonGroup,QToolButton,
+    QLabel, QMainWindow, QMessageBox, QTabWidget, QTableWidget,
+    QTableWidgetItem, QVBoxLayout, QWidget, QRadioButton, QButtonGroup,
+    QToolButton
 )
-from typing import cast
+
 from Modules.conexion_db          import get_bocas_consulta_efector, get_odontograma_data
 from Modules.menubox_prest        import (
     get_menu_existentes, get_menu_requeridas, REQUERIDAS_FULL_SET,
@@ -24,8 +27,10 @@ from Modules.menubox_prest        import (
 from Modules.modelos_sin_imagenes import OdontogramView
 from Modules.utils                import resource_path, ESTADOS_POR_NUM
 from Utils.sp_data_parse          import parse_dientes_sp
-from Utils.actions                import capture_odontogram   # ← refresh eliminado
-from Utils.center_window import center_on_screen   # ← NUEVO
+from Utils.actions                import capture_odontogram
+from Utils.center_window          import center_on_screen
+
+
 # ════════════════════════════════════════════════════════════
 class MainWindow(QMainWindow):
     """Ventana principal con odontograma + filtros de prestaciones."""
@@ -35,21 +40,21 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Odontograma – Auditoría por Prestador")
 
-        # ── SIN botones de minimizar / maximizar ──
+        # ── deshabilita minimizar / maximizar ──
         self.setWindowFlag(Qt.WindowMinimizeButtonHint, False)  # type: ignore[attr-defined]
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, False)  # type: ignore[attr-defined]
 
-        # --- flag de solo-lectura ---
-        self.locked = bool(data_dict.get("locked", False))
+        # --- solo-lectura si viene bloqueado ---
+        self.locked: bool = bool(data_dict.get("locked", False))
 
         # --- estado interno ---
         self.current_idboca: int | None = None
         self.raw_states: List[Tuple[int, int, str]] = []
 
         # --- icono de la ventana ---
-        ico = resource_path("src/icon.png")
-        if os.path.exists(ico):
-            self.setWindowIcon(QIcon(ico))
+        win_icon = resource_path("src/icon.png")
+        if os.path.exists(win_icon):
+            self.setWindowIcon(QIcon(win_icon))
 
         # --- vista odontograma ---
         self.odontogram_view = OdontogramView(locked=self.locked)
@@ -64,23 +69,59 @@ class MainWindow(QMainWindow):
 
         # --- tabs de estados ---
         self.tabs = self._build_tabs(filas_bocas)
-        self.tabs.setFixedWidth(310) 
+        self.tabs.setFixedWidth(310)
+
         # --- radio-buttons de filtro ---
         self.grp_filtro = self._build_filter_radios()
 
-        # ─────────── BOTÓN DESCARGAR ───────────
-        btn_download = QPushButton("DESCARGAR")
-        btn_download.setObjectName("btnDescargar")      # para el CSS
+        # ═══════════ BOTÓN DESCARGAR (icono) ═══════════
+        btn_download = QToolButton(self)
+        btn_download.setObjectName("btnDescargar")          # para CSS específico
+        btn_download.setToolTip("Descargar")
+
+        # cursor compatible PyQt5 / PyQt6
+        if hasattr(Qt, "CursorShape"):                      # PyQt6
+            pointing_cursor = Qt.CursorShape.PointingHandCursor  # type: ignore[attr-defined]
+        else:                                               # PyQt5
+            pointing_cursor = Qt.PointingHandCursor  # type: ignore[attr-defined]
+        btn_download.setCursor(pointing_cursor)  # type: ignore[arg-type]
+
+        btn_download.setAutoRaise(True)                     # estilo plano
+
+        ico_save = resource_path("src/save-file.png")
+        if os.path.exists(ico_save):
+            btn_download.setIcon(QIcon(ico_save))
+            btn_download.setIconSize(QSize(28, 28))
+        else:
+            # fallback textual si falta el PNG
+            btn_download.setText("💾")
+
+        # estilo inline solo para este botón
+        btn_download.setStyleSheet("""
+            QToolButton#btnDescargar {
+                background: transparent;
+                border: none;
+                padding: 0px;
+            }
+            QToolButton#btnDescargar:hover {
+                background: rgba(0, 0, 0, 0.08);
+                border-radius: 4px;
+            }
+            QToolButton#btnDescargar:pressed {
+                background: rgba(0, 0, 0, 0.16);
+            }
+        """)
+
         btn_download.clicked.connect(self._do_download)
 
-        # ─────────── CONTENEDOR ODONTOGRAMA + BOTÓN ───────────
+        # ──────── CONTENEDOR ODONTOGRAMA + BOTÓN ────────
         odo_box = QVBoxLayout()
-        odo_box.addWidget(self.odontogram_view, 1)      # odontograma (expande)
+        odo_box.addWidget(self.odontogram_view, 1)      # la vista expande
         odo_box.addStretch()                            # empuja el botón abajo
         odo_box.addWidget(
-            btn_download, 0,
+            btn_download,
             alignment=cast(Qt.Alignment,
-                                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
+                           Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
         )
 
         odo_container = QWidget()
@@ -95,7 +136,7 @@ class MainWindow(QMainWindow):
         # ─────────── LAYOUT PRINCIPAL ───────────
         body = QHBoxLayout()
         body.addLayout(sidebar, 0)
-        body.addWidget(odo_container, 1)                # ← usa el nuevo contenedor
+        body.addWidget(odo_container, 1)
 
         root = QVBoxLayout()
         root.addWidget(self.header_frame)
@@ -105,12 +146,14 @@ class MainWindow(QMainWindow):
         container.setLayout(root)
         self.setCentralWidget(container)
 
-        # ventana un poco más compacta (ajusta a gusto)
-        self.resize(1260, 640)
+        # ventana compacta
+        self.resize(1260, 600)
+
+        # centra la primera vez que se muestra
+        self._centered = False
 
         if filas_bocas:
             self._on_boca_seleccionada(0, 0)
-
 
     # ───────────────────────── HEADER ─────────────────────────
     def _build_header(self) -> None:
@@ -126,7 +169,8 @@ class MainWindow(QMainWindow):
         hdr.setMinimumHeight(100)
         self.header_frame = hdr
 
-        g = QGridLayout(); g.setSpacing(12)
+        g = QGridLayout()
+        g.setSpacing(12)
         for col, stretch in enumerate([1, 3, 1, 3]):
             g.setColumnStretch(col, stretch)
 
@@ -140,23 +184,25 @@ class MainWindow(QMainWindow):
         g.addWidget(self._key("FECHA:",      bold),    1, 2)
         g.addWidget(self.lblFechaValue,                1, 3)
         g.addWidget(self._key("OBSERVACIONES:", bold),
-            2, 0, alignment=Qt.AlignmentFlag.AlignTop)
+                    2, 0, alignment=Qt.AlignmentFlag.AlignTop)
         g.addWidget(self.lblObsValue, 2, 1, 1, 3)
         hdr.setLayout(g)
+
     # ───────────────────── override de showEvent ───────────────────
-    def showEvent(self, event) -> None:             # type: ignore[override]
+    def showEvent(self, event: QShowEvent) -> None:  # type: ignore[override]
         super().showEvent(event)
-        if not getattr(self, "_centered", False):   # solo la primera vez
+        if not self._centered:                       # solo la primera vez
             center_on_screen(self)
             self._centered = True
 
-    # helpers de header -------------------------------------------------
+    # ────────────────────── helpers header ──────────────────────
     def _key(self, txt: str, f: QFont) -> QLabel:
         lbl = QLabel(txt)
         lbl.setFont(f)
         lbl.setStyleSheet("color:white;")
         eff = QGraphicsDropShadowEffect()
-        eff.setBlurRadius(6); eff.setOffset(0, 0)
+        eff.setBlurRadius(6)
+        eff.setOffset(0, 0)
         eff.setColor(QColor(0, 0, 0, 180))
         lbl.setGraphicsEffect(eff)
         return lbl
@@ -169,7 +215,6 @@ class MainWindow(QMainWindow):
 
     # ────────────────────────── TABS ─────────────────────────
     def _build_tabs(self, filas_bocas: List[Dict[str, str]]) -> QTabWidget:
-
         tabs = QTabWidget()
         tabs.setTabPosition(QTabWidget.West)
 
@@ -185,20 +230,17 @@ class MainWindow(QMainWindow):
         # ─── Prestaciones REQUERIDAS ───
         menu_req = get_menu_requeridas(self._on_estado_clicked)
 
-        # Aquí puedes personalizar **todos** los botones del menú
+        # Íconos más chicos en esta pestaña
+        from PyQt5.QtWidgets import QToolButton  # import local para tipado
         for btn in menu_req.findChildren(QToolButton):
-            btn.setIconSize(QSize(25, 25))              # ⇦ 1) tamaño más chico
-            # ejemplo para cambiar el ícono si lo deseas:
-            # if btn.toolTip() == "Caries":
-            #     btn.setIcon(QIcon(resource_path("src/icon_caries_alt.png")))
+            btn.setIconSize(QSize(25, 25))
 
         tabs.addTab(menu_req, "Prest Requeridas")
-
         return tabs
 
     # ───────────────────── FILTER RADIOS ─────────────────────
     def _build_filter_radios(self) -> QWidget:
-        rb_all  = QRadioButton("Todos");     rb_all.setChecked(True)
+        rb_all  = QRadioButton("Todos");           rb_all.setChecked(True)
         rb_ex   = QRadioButton("Solo Existentes")
         rb_req  = QRadioButton("Solo Requeridas")
 
@@ -207,8 +249,10 @@ class MainWindow(QMainWindow):
             self.filter_group.addButton(rb, i)
         self.filter_group.buttonToggled.connect(self._reapply_filter)
 
-        box = QFrame(); lay = QHBoxLayout(box)
-        for rb in (rb_all, rb_ex, rb_req): lay.addWidget(rb)
+        box = QFrame()
+        lay = QHBoxLayout(box)
+        for rb in (rb_all, rb_ex, rb_req):
+            lay.addWidget(rb)
         return box
 
     # ───────────────────── TAB “BOCAS” ───────────────────────
@@ -219,14 +263,14 @@ class MainWindow(QMainWindow):
         self.tableBocas.setHorizontalHeaderLabels(
             ["idBoca", "Fecha Carga", "Resumen Clínico"])
 
-        # ── selección de FILAS completas ───────────────────────
+        # selección de filas completas
         self.tableBocas.setSelectionBehavior(QTableWidget.SelectRows)
         self.tableBocas.setSelectionMode(QTableWidget.SingleSelection)
 
         # clic con el mouse
         self.tableBocas.cellClicked.connect(self._on_boca_seleccionada)
 
-        # ⌨ flechas ↑ / ↓  → cambia celda actual
+        # flechas ↑ / ↓
         self.tableBocas.currentCellChanged.connect(
             lambda row, col, *_: self._on_boca_seleccionada(row, col)
         )
@@ -239,7 +283,6 @@ class MainWindow(QMainWindow):
             self.tableBocas.setItem(i, 1, QTableWidgetItem(str(d.get("fechacarga", ""))))
             self.tableBocas.setItem(i, 2, QTableWidgetItem(str(d.get("resumenclinico", ""))))
         self.tableBocas.setColumnHidden(0, True)
-
 
     # ──────────────────── DATA HELPERS ───────────────────────
     def _get_bocas(self, data: Mapping[str, Any]) -> List[Dict[str, str]]:
@@ -293,14 +336,10 @@ class MainWindow(QMainWindow):
 
     # ───────────────────── CALLBACK estado clic ─────────────────────
     def _on_estado_clicked(self, estado: str) -> None:
-        """
-        Recibe el nombre del estado que se hace clic en los menús de
-        prestaciones y lo envía a la vista de odontograma.
-        """
+        """Recibe el nombre del estado clickeado y lo envía a la vista."""
         self.odontogram_view.set_current_state(estado)
-    
 
-    # ----- CALLBACK estado clic -----
+    # ─────────────────────── DESCARGA ────────────────────────
     def _do_download(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta")
         if not path:
@@ -308,14 +347,13 @@ class MainWindow(QMainWindow):
         try:
             cred  = self.lblCredValue.text()
             fecha = self.lblFechaValue.text()      # dd/mm/aaaa
-            tag   = f"{cred}_{fecha}"              # «12345678_01/02/2025»
+            tag   = f"{cred}_{fecha}"              # p. ej. «12345678_01/02/2025»
 
             saved = capture_odontogram(
                 self.odontogram_view,
-                patient_name=tag,                  # ← nuevo
+                patient_name=tag,
                 captures_dir=path,
             )
             QMessageBox.information(self, "Captura guardada", saved)
         except Exception as ex:
-            QMessageBox.warning(self, "Error", str(ex))
-
+            QMessageBox.warning(self, "Error al guardar", str(ex))
