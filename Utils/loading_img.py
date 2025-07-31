@@ -1,8 +1,7 @@
 # Utils/loading_img.py
 # coding: utf-8
 """
-Splash animado, translúcido y centrado en la pantalla.
-Puede reutilizarse en cualquier proyecto PyQt ≥ 5.15.
+Splash animado y translúcido, reutilizable.
 """
 
 from __future__ import annotations
@@ -26,11 +25,12 @@ class LoadingSplash(QWidget):
         max_gif_size: QSize | None = QSize(160, 160),
     ) -> None:
 
-        # ► FLAGS: sin marco + siempre encima
-        flags = Qt.WindowFlags(
-            Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
-        )
-        super().__init__(None, flags)                    # type-safe
+        super().__init__(None)  # ← solo parent (None)
+
+        # ► FLAGS sin marco + siempre encima
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint # type: ignore[attr-defined]
+        ) # type: ignore[attr-defined]
 
         # ► Fondo transparente
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
@@ -65,7 +65,7 @@ class LoadingSplash(QWidget):
         # ► Centrar splash
         self.adjustSize()
         screen = app.primaryScreen()
-        if screen:                                       # guard-clause
+        if screen:
             center = screen.availableGeometry().center()
             self.move(center - QPoint(self.width() // 2, self.height() // 2))
 
