@@ -29,7 +29,7 @@ from Modules.utils         import resource_path, ESTADOS_POR_NUM
 from Utils.sp_data_parse   import parse_dientes_sp
 from Utils.actions         import capture_odontogram
 from Utils.center_window   import center_on_screen
-
+from Styles.animation import apply_button_colorize_animation
 
 # ════════════════════════════════════════════════════════════
 class MainWindow(QMainWindow):
@@ -70,16 +70,25 @@ class MainWindow(QMainWindow):
         self.tabs = self._build_tabs(filas_bocas); self.tabs.setFixedWidth(320) # tabla de estados
         self.grp_filtro = self._build_filter_radios()
 
-        # —— Botón descargar ——
-        btn_download = QToolButton(self, objectName="btnDescargar") # type: ignore[attr-defined]
-        btn_download.setCursor(Qt.PointingHandCursor)     # type: ignore[attr-defined]
-        btn_download.setAutoRaise(True)
+# —— Botón descargar ——
+        # CORREGIDO: Se crea el botón y LUEGO se le asigna el nombre.
+        btn_download = QToolButton(self)
+        btn_download.setObjectName("btnDescargar")
+
+        btn_download.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_download.setToolTip("Descargar captura")
+
         ico_save = resource_path("src/save-file.png")
         if os.path.exists(ico_save):
-            btn_download.setIcon(QIcon(ico_save)); btn_download.setIconSize(QSize(35, 35))
+            btn_download.setIcon(QIcon(ico_save))
+            btn_download.setIconSize(QSize(35, 35))
         else:
             btn_download.setText("💾")
+        
         btn_download.clicked.connect(self._do_download)
+
+        # APLICA LA ANIMACIÓN AQUÍ
+        apply_button_colorize_animation(btn_download)
 
         # —— Layout canvas + botón ——
         odo_box = QVBoxLayout(); odo_box.setContentsMargins(0,0,0,0); odo_box.setSpacing(4)

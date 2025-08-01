@@ -9,19 +9,19 @@ a todos los componentes de la interfaz de usuario.
 """
 from PyQt5.QtWidgets import QApplication
 
-# --- PALETA DEL HEADER (TEMA OSCURO) ---
-# VALORES MODIFICADOS para un header más claro
-HEADER_BACKGROUND = "#8c98b4"  # Un gris oscuro, pero más claro que el anterior
-HEADER_FOREGROUND = "#b3c7eb"  # Nord Snow Storm (texto claro)
-HEADER_BORDER = "#5e6c80"      # Borde sutilmente más claro que el nuevo fondo
+# --- PALETA DEL HEADER (IMITANDO LA IMAGEN CON DEGRADADO) ---
+HEADER_GRADIENT_START = "#457aaf"  # Azul oscuro del degradado (izquierda)
+HEADER_GRADIENT_END = "#bdd6ee"    # Azul muy claro del degradado (derecha)
+HEADER_FOREGROUND = "#212121"      # MODIFICADO a texto oscuro para legibilidad
+HEADER_BORDER = "#4a78a5"          # Borde azul oscuro que combina
 
 # --- PALETA PRINCIPAL (TEMA CELESTE-GRIS CLARO) ---
-LIGHT_BACKGROUND = "#f0f8ff"   # AliceBlue: Un blanco con un toque muy sutil de celeste
+LIGHT_BACKGROUND = "#f0f8ff"   # AliceBlue: Color sólido para el fondo principal
 LIGHT_SURFACE = "#e6eaf0"      # Gris azulado claro para superficies
 LIGHT_FOREGROUND = "#212121"   # Gris muy oscuro (casi negro) para texto
 LIGHT_BORDER = "#d0d5db"       # Borde gris azulado
 LIGHT_ACCENT = "#4682b4"       # SteelBlue: Un azul más sobrio para acentos
-LIGHT_ACCENT_HOVER = "#3a6a94"  # Azul más oscuro para efecto hover
+LIGHT_ACCENT_HOVER = "#0d3252"  # Azul más oscuro para efecto hover
 
 
 def apply_style(app: QApplication) -> None:
@@ -44,16 +44,18 @@ def apply_style(app: QApplication) -> None:
 
         /* ------------------- HEADER (EXCEPCIÓN CON TEMA OSCURO) ------------------- */
         QFrame#headerFrame {{
-            background-color: {HEADER_BACKGROUND};
+            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                              stop:0 {HEADER_GRADIENT_START}, stop:1 {HEADER_GRADIENT_END});
             border-radius: 8px;
-            padding: 15px;
-            border: 1px solid {HEADER_BORDER};
+            padding: 10px;
+            border: 2px solid {HEADER_BORDER};
         }}
 
         QFrame#headerFrame QLabel {{
             background-color: transparent;
             color: {HEADER_FOREGROUND};
             font-weight: bold;
+            font-size: 9pt;
         }}
 
         /* ------------------- PESTAÑAS (TABS) ------------------- */
@@ -69,15 +71,21 @@ def apply_style(app: QApplication) -> None:
             border-bottom-left-radius: 5px;
             padding: 10px 6px;
             min-width: 30px;
+            /* AÑADIDO: Se reduce la fuente para evitar que el texto se corte */
+            font-size: 9pt;
         }}
 
         QTabBar::tab:west:hover {{
+            /* MODIFICADO: Efecto hover más notorio */
             background-color: {LIGHT_SURFACE};
+            color: {LIGHT_ACCENT_HOVER};
         }}
 
         QTabBar::tab:west:selected {{
+            /* MODIFICADO: Efecto de selección de alto contraste */
             background-color: {LIGHT_ACCENT};
             color: white;
+            font-weight: bold;
         }}
 
         /* ------------------- TABLA DE BOCAS ------------------- */
@@ -100,7 +108,8 @@ def apply_style(app: QApplication) -> None:
 
         QHeaderView::section {{
             background-color: {LIGHT_SURFACE};
-            padding: 6px;
+            padding: 4px;
+            font-size: 9pt;
             border: none;
             border-bottom: 1px solid {LIGHT_BORDER};
         }}
@@ -131,9 +140,12 @@ def apply_style(app: QApplication) -> None:
             padding: 0px;
         }}
 
+
+
         /* ------------------- RADIO BUTTONS (FILTROS) ------------------- */
         QRadioButton {{
             spacing: 8px;
+            background-color: transparent;
         }}
 
         QRadioButton::indicator {{
@@ -154,10 +166,6 @@ def apply_style(app: QApplication) -> None:
         }}
 
         /* ------------------- OTROS WIDGETS ------------------- */
-        QMessageBox {{
-            background-color: {LIGHT_BACKGROUND};
-        }}
-
         QMessageBox QPushButton {{
             background-color: {LIGHT_ACCENT};
             color: white;
