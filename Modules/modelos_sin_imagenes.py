@@ -54,7 +54,7 @@ DOT_RED_PEN = QPen(RED, 2, Qt.DotLine)                    # type: ignore[attr-de
 RED_BRIDGE_PEN = QPen(RED, 3)
 
 # Espaciado vertical -----------------------------------------------------------
-TOP_PADDING        = 10
+TOP_PADDING        = -10
 BETWEEN_ROWS_EXTRA = 60
 
 # ─────────────────────────────────────────────────────────────
@@ -353,7 +353,7 @@ class OdontogramView(QGraphicsView):
     def _create_teeth(self) -> None:
         size, margin = TOOTH_SIZE, TOOTH_MARGIN
         base_width = max(len(r) for r in TEETH_ROWS) * (size + margin) - margin
-
+    
         for idx, row in enumerate(TEETH_ROWS):
             row_w = len(row) * (size + margin) - margin
             offset_x = (base_width - row_w) // 2
