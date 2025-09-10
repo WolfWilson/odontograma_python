@@ -109,8 +109,16 @@ EJEMPLO DE LA VISUALIZACIÓN:
 [![odontograma-SIN-TITULAR-SIN-FECHA.png](https://i.postimg.cc/xdgLwCHD/odontograma-SIN-TITULAR-SIN-FECHA.png)](https://postimg.cc/5HYHvfnn)
 
 ## Pyinstaller
-```dash
-pyinstaller --% --onefile --noconsole --distpath "\\fs01\Aut_Dentisteria\exe test" --add-data "src;src" --collect-submodules Modules --collect-submodules Utils --collect-submodules Styles odontograma.py
+```powershell
+pyinstaller --onefile --noconsole `
+  --icon 'src/odontograma.ico' `
+  --distpath '\\fs01\Aut_Dentisteria\exe test' `
+  --add-data 'src;src' `
+  --collect-submodules Modules `
+  --collect-submodules Utils `
+  --collect-submodules Styles `
+  --hidden-import pyodbc `
+  odontograma.py
 ```
 
 ##  🤝 Contribuciones 
