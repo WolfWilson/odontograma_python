@@ -15,8 +15,7 @@ from typing import List
 _PREFERRED_ORDER = (
     "SQL Server",
     "SQL Server Native Client 11.0",
-    "ODBC Driver 11 for SQL Server",
-    "ODBC Driver 17 for SQL Server",
+    "SQL Server Native Client 10.0",
 )
 
 def _installed_sql_drivers() -> List[str]:
@@ -27,9 +26,10 @@ def _installed_sql_drivers() -> List[str]:
 
 def _ordered_drivers() -> List[str]:
     installed = _installed_sql_drivers()
-    preferred = [f"{{{d}}}" for d in _PREFERRED_ORDER if f"{{{d}}}" in installed]
-    others    = [d for d in installed if d not in preferred]
-    order = preferred + others
+    # Usar solo los drivers de la lista preferida que estén instalados.
+    order = [f"{{{d}}}" for d in _PREFERRED_ORDER if f"{{{d}}}" in installed]
+    if not order:
+        print("[WARN] Ninguno de los drivers preferidos está instalado.")
     print(f"[DEBUG] Orden de prueba de drivers: {order}")
     return order
 
